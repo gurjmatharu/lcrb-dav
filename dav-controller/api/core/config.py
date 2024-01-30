@@ -182,15 +182,6 @@ class GlobalConfig(BaseSettings):
     ST_ACAPY_ADMIN_API_KEY: Optional[str] = os.environ.get("ST_ACAPY_ADMIN_API_KEY")
     DB_ECHO_LOG: bool = False
 
-    DEFAULT_PAGE_SIZE: Union[int, str] = os.environ.get("DEFAULT_PAGE_SIZE", 10)
-
-    # openssl rand -hex 32
-    SIGNING_KEY_SIZE = os.environ.get("SIGNING_KEY_SIZE", 2048)
-    # SIGNING_KEY_FILEPATH expects complete path including filename and extension.
-    SIGNING_KEY_FILEPATH: Optional[str] = os.environ.get("SIGNING_KEY_FILEPATH")
-    SIGNING_KEY_ALGORITHM: str = os.environ.get("SIGNING_KEY_ALGORITHM", "RS256")
-    SUBJECT_ID_HASH_SALT = os.environ.get("SUBJECT_ID_HASH_SALT", "test_hash_salt")
-
     # DAV Controller Settings
     CONTROLLER_API_KEY: str = os.environ.get("CONTROLLER_API_KEY", "")
     USE_OOB_PRESENT_PROOF: bool = strtobool(
