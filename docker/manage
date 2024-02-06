@@ -1,0 +1,355 @@
+#!/bin/bash
+export MSYS_NO_PATHCONV=1
+# getDockerHost; for details refer to https://github.com/bcgov/DITP-DevOps/tree/main/code/snippets#getdockerhost
+. /dev/stdin <<<"$(cat <(curl -s --raw https://raw.githubusercontent.com/bcgov/DITP-DevOps/main/code/snippets/getDockerHost))" 
+export DOCKERHOST=$(getDockerHost)
+set -e
+
+function echoError (){
+  _msg=${1}
+  _red='\e[31m'
+  _nc='\e[0m' # No Color
+  echo -e "${_red}${_msg}${_nc}"
+}
+
+function echoWarning (){
+  _msg=${1}
+  _yellow='\e[33m'
+  _nc='\e[0m' # No Color
+  echo -e "${_yellow}${_msg}${_nc}"
+}
+
+function echoSuccess (){
+  _msg=${1}
+  _green='\e[32m'
+  _nc='\e[0m' # No Color
+  echo -e "${_green}${_msg}${_nc}"
+}
+
+function echoInfo (){
+  _msg=${1}
+  _gray='\e[36m'
+  _nc='\e[0m' # No Color
+  echo -e "${_gray}${_msg}${_nc}"
+}
+
+function generateKey(){
+  (
+    _length=${1:-48}
+    # Format can be `-base64` or `-hex`
+    _format=${2:--base64}
+
+    echo $(openssl rand ${_format} ${_length})
+  )
+}
+
+function generateSeed(){
+  (
+    _prefix=${1}
+    _seed=$(echo "${_prefix}$(generateKey 32)" | fold -w 32 | head -n 1 )
+    _seed=$(echo -n "${_seed}")
+    echo ${_seed}
+  )
+}
+
+SCRIPT_HOME="$(cd "$(dirname "$0")" && pwd)"
+
+# =================================================================================================================
+# Usage:
+# -----------------------------------------------------------------------------------------------------------------
+usage() {
+  cat <<-EOF
+    
+      Usage: $0 [command] [options]
+    
+      Commands:
+    
+      build - Build the docker images for the project.
+              You need to do this first.
+    
+                $0 build 
+    
+      up -  Creates the application containers from the built images
+            and starts the services based on the docker-compose.yml file.
+
+            You can pass in a list of containers to start.  
+            By default all containers will be started.
+
+              $0 start
+
+      start - Same as up.
+
+      logs - Display the logs from the docker compose run (ctrl-c to exit).
+
+      stop - Stops the services.  This is a non-destructive process.  The volumes and containers
+             are not deleted so they will be reused the next time you run start.
+    
+      down - Brings down the services and removes the volumes (storage) and containers.
+      
+      rm - Same as down
+EOF
+  exit 1
+}
+
+# -----------------------------------------------------------------------------------------------------------------
+# Default Settings:
+# -----------------------------------------------------------------------------------------------------------------
+DEFAULT_CONTAINERS="controller-db"
+ACAPY_CONTAINERS="aca-py wallet-db"
+PROD_CONTAINERS="controller"
+
+# -----------------------------------------------------------------------------------------------------------------
+# Functions:
+# -----------------------------------------------------------------------------------------------------------------
+build-dav-controller() {
+  echo -e "\nBuilding dav-controller image..."
+  docker build \
+    -t 'dav-controller' \
+    -f './dav-controller/Dockerfile' '..'
+}
+
+buildImages() {
+  build-dav-controller
+}
+
+configureEnvironment() {
+
+  if [ -f .env ]; then
+    while read line; do
+      if [[ ! "$line" =~ ^\# ]] && [[ "$line" =~ .*= ]]; then
+        export ${line//[$'\r\n']}
+      fi
+    done <.env
+  fi
+
+   for arg in "$@"; do
+    # Remove recognized arguments from the list after processing.
+    shift
+
+    # echo "arg: ${arg}"
+    # echo "Remaining: ${@}"
+
+    case "$arg" in
+      *=*)
+        # echo "Exporting ..."
+        export "${arg}"
+        ;;
+      *)
+        # echo "Saving for later ..."
+        # If not recognized, save it for later procesing ...
+        set -- "$@" "$arg"
+        ;;
+    esac
+  done
+
+  ## global
+  export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dav}"
+  export LOG_LEVEL=${LOG_LEVEL:-"DEBUG"}
+
+  # controller-db
+  export MONGODB_HOST="controller-db"
+  export MONGODB_PORT="27017"
+  export MONGODB_NAME="davcontroller"
+  export DAV_CONTROLLER_DB_USER="davcontrolleruser"
+  export DAV_CONTROLLER_DB_USER_PWD="davcontrollerpass"
+
+
+  # controller
+  export CONTROLLER_SERVICE_PORT=${CONTROLLER_SERVICE_PORT:-5000}
+  export CONTROLLER_URL="${CONTROLLER_URL:-http://controller:5000}"
+  export CONTROLLER_WEB_HOOK_URL=${CONTROLLER_WEB_HOOK_URL:-${CONTROLLER_URL}/webhooks}
+  if [ ! -z "${CONTROLLER_API_KEY}" ]; then
+    CONTROLLER_WEB_HOOK_URL="${CONTROLLER_WEB_HOOK_URL}#${CONTROLLER_API_KEY}"
+  fi
+  export ST_ACAPY_ADMIN_API_KEY_NAME="x-api-key"
+
+  # The redirect url can be a web link or the name of a template
+  export CONTROLLER_CAMERA_REDIRECT_URL="wallet_howto"
+
+  # The number of time in seconds a proof request will be valid for
+  export CONTROLLER_PRESENTATION_EXPIRE_TIME=10
+
+  #controller app settings
+  export SET_NON_REVOKED="True" # both work
+  export USE_OOB_PRESENT_PROOF="False" #BC wallet kinda supports true.
+  export USE_OOB_LOCAL_DID_SERVICE="False" #bc wallet does not support true
+
+  # agent
+  export AGENT_TENANT_MODE="${AGENT_TENANT_MODE:-single}"
+  export AGENT_HOST=${AGENT_HOST:-aca-py}
+  export AGENT_NAME="DAV Agent"
+  export AGENT_HTTP_PORT=${AGENT_HTTP_PORT:-8030}
+  export AGENT_ADMIN_PORT=${AGENT_ADMIN_PORT:-"8077"}
+  export AGENT_ADMIN_URL=${AGENT_ADMIN_URL:-http://$AGENT_HOST:$AGENT_ADMIN_PORT}
+  export AGENT_ENDPOINT=${AGENT_ENDPOINT:-http://$AGENT_HOST:$AGENT_HTTP_PORT}
+  export AGENT_ADMIN_API_KEY=${AGENT_ADMIN_API_KEY}
+  export AGENT_ADMIN_MODE="admin-insecure-mode"
+  if [ ! -z "${AGENT_ADMIN_API_KEY}" ]; then
+    AGENT_ADMIN_MODE="admin-api-key ${AGENT_ADMIN_API_KEY}"
+  fi
+  export AGENT_WALLET_SEED=${AGENT_WALLET_SEED}
+  export MT_ACAPY_WALLET_ID=${MT_ACAPY_WALLET_ID}
+  export MT_ACAPY_WALLET_KEY=${MT_ACAPY_WALLET_KEY}
+
+  # wallet-db
+  export WALLET_TYPE="postgres_storage"
+  export WALLET_ENCRYPTION_KEY="key"
+  export POSTGRESQL_WALLET_HOST="wallet-db"
+  export POSTGRESQL_WALLET_PORT="5432"
+  export POSTGRESQL_WALLET_DATABASE="wallet_db"
+  export POSTGRESQL_WALLET_USER="walletuser"
+  export POSTGRESQL_WALLET_PASSWORD="walletpassword"
+}
+
+getStartupParams() {
+  CONTAINERS=""
+  ARGS="--force-recreate"
+
+  for arg in $@; do
+    case "$arg" in
+    *=*)
+      # Skip it
+      ;;
+    -*)
+      ARGS+=" $arg"
+      ;;
+    *)
+      CONTAINERS+=" $arg"
+      ;;
+    esac
+  done
+
+  if [ -z "$CONTAINERS" ]; then
+    CONTAINERS="$DEFAULT_CONTAINERS"
+  fi
+
+  echo ${ARGS} ${CONTAINERS}
+}
+
+deleteVolumes() {
+  _projectName=${COMPOSE_PROJECT_NAME:-dav}
+
+  echo "Stopping and removing any running containers ..."
+  docker-compose -f docker-compose.yaml -f down -v
+
+  _pattern="^${_projectName}_\|^docker_"
+  _volumes=$(docker volume ls -q | grep ${_pattern})
+
+  if [ ! -z "${_volumes}" ]; then
+    echo "Removing project volumes ..."
+    echo ${_volumes} | xargs docker volume rm
+  else
+    echo "No project volumes exist."
+  fi
+}
+
+toLower() {
+  echo $(echo ${@} | tr '[:upper:]' '[:lower:]')
+}
+
+initializeUserPrompts() {
+  ######
+  #  If .env-dev exists, use it to populate .env
+  #  Otherwise, create an empty .env file
+  if [ -f ".env-dev" ] ; then
+    cat .env-dev > .env
+    echo "" >> .env
+  else
+    touch .env
+  fi
+  ######
+
+  # Set CONTROLLER_SERVICE_PORT for the ngrok service to use
+  if [ ! -z "$CONTROLLER_SERVICE_PORT" ]; then
+    echo "CONTROLLER_SERVICE_PORT=${CONTROLLER_SERVICE_PORT}" >> .env
+  else
+    echo "CONTROLLER_SERVICE_PORT=5000" >> .env
+  fi
+
+  PS3="Is your agent single-tenant or multi-tenant? "
+  select opt in "Single-Tenant" "Multi-Tenant/Traction" "Quit"; do
+    case $REPLY in
+      1)
+        echo "AGENT_TENANT_MODE=single" >> .env
+        export AGENT_TENANT_MODE=single
+        echo "AGENT_WALLET_SEED=$(generateSeed dav-controller)" >> .env
+        break
+        ;;
+      2)
+        read  -p "Please provide your tenant's Wallet ID:" MT_ACAPY_WALLET_ID
+        read  -p "Please provide your tenant's Wallet Key:" MT_ACAPY_WALLET_KEY
+        echo "AGENT_TENANT_MODE=multi" >> .env
+        export AGENT_TENANT_MODE=multi
+        echo "MT_ACAPY_WALLET_ID=${MT_ACAPY_WALLET_ID}" >> .env
+        echo "MT_ACAPY_WALLET_KEY=${MT_ACAPY_WALLET_KEY}" >> .env
+        echo "AGENT_HOST=${DOCKERHOST}" >> .env
+        echo "AGENT_HTTP_PORT=8030" >> .env
+        echo "AGENT_ADMIN_PORT=8032" >> .env
+
+        # do not start agent services when using external multi-tenant instance
+        unset ACAPY_CONTAINERS
+        break
+        ;;
+      3)
+        exit 0
+        ;;
+      *) 
+        echo "Invalid option $REPLY"
+        ;;
+    esac
+  done
+}
+
+# =================================================================================================================
+
+pushd ${SCRIPT_HOME} >/dev/null
+COMMAND=$(toLower ${1})
+shift || COMMAND=usage
+
+case "${COMMAND}" in
+start|up)
+  _startupParams=$(getStartupParams $@)
+  
+  if [[ ! -f ".env" ]]; then
+    # first/clean run, prompt user selections
+    initializeUserPrompts
+    echoWarning "User preferences were saved in docker/.env for future use"
+  else
+    export AGENT_TENANT_MODE=$(grep AGENT_TENANT_MODE ./.env | cut -d'=' -f 2-)
+  fi
+
+
+  configureEnvironment $@
+
+  docker-compose up -d ${_startupParams} ${DEFAULT_CONTAINERS} ${ACAPY_CONTAINERS} ${PROD_CONTAINERS}
+
+  docker-compose logs -f
+ ;;
+logs)
+  configureEnvironment $@
+  docker-compose logs -f
+  ;;
+stop)
+  configureEnvironment
+  docker-compose stop
+  ;;
+rm|down)  
+  # delete previously saved settings
+  if [ -f ".env" ] ; then
+    rm ".env"
+  fi
+
+  configureEnvironment
+  deleteVolumes
+  ;;
+build)
+  _startupParams=$(getStartupParams $@)
+  configureEnvironment $@
+  buildImages
+  ;;
+*)
+  usage
+  ;;
+esac
+
+popd >/dev/null

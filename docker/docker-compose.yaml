@@ -2,9 +2,6 @@ version: "3"
 services:
   controller:
     image: dav-controller
-    build:
-      context: ..
-      dockerfile: docker/dav-controller/Dockerfile
     entrypoint: /bin/bash
     command: >
       -c "
@@ -42,7 +39,7 @@ services:
     volumes:
       - ../dav-controller:/app:rw
     networks:
-      - vc_auth
+      - dav_controller
 
   controller-db:
     image: mongo:6.0
@@ -57,7 +54,7 @@ services:
       - ${MONGODB_PORT}:27017
     restart: unless-stopped
     networks:
-      - vc_auth
+      - dav_controller
 
   aca-py:
     image: ghcr.io/hyperledger/aries-cloudagent-python:py3.9-0.10.3
@@ -83,7 +80,7 @@ services:
       - ${AGENT_ADMIN_PORT}:${AGENT_ADMIN_PORT}
       - ${AGENT_HTTP_PORT}:${AGENT_HTTP_PORT}
     networks:
-      - vc_auth
+      - dav_controller
     volumes:
       - ./agent/config/ledgers.yaml:/tmp/ledgers.yaml
     depends_on:
@@ -102,14 +99,14 @@ services:
       - POSTGRES_PASSWORD=${POSTGRESQL_WALLET_PASSWORD}
       - POSTGRES_DB=${POSTGRESQL_WALLET_DATABASE}
     networks:
-      - vc_auth
+      - dav_controller
     ports:
       - 5433:5432
     volumes:
       - agent-wallet-db:/var/lib/pgsql/data
 
 networks:
-  vc_auth:
+  dav_controller:
     driver: bridge
 
 volumes:

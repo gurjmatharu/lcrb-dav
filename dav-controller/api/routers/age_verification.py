@@ -63,8 +63,10 @@ async def poll_pres_exch_complete(pid: str, db: Database = Depends(get_db)):
             deliver_notification(
                 "status", {"status": "expired"}, auth_session.notify_endpoint
             )
-
-    return {"proof_status": auth_session.proof_status}
+    if auth_session.proof_status == AuthSessionState.SUCCESS:
+        pres_exch = auth_session.presentation_exchange
+        pic_b64_enc = None
+    return {"proof_status": auth_session.proof_status, "verified_picture": pic_b64_enc}
 
 
 # HTMLResponse
@@ -105,6 +107,9 @@ async def new_dav_request(request: Request, db: Database = Depends(get_db)):
     image_contents = base64.b64encode(buff.getvalue()).decode("utf-8")
 
     # This is the payload to send to the template
+    deep_link_proof_url = (
+        f"bcwallet://aries_connection_invitation?{url_to_message.split('?')[1]}"
+    )
     data = {
         "image_contents": image_contents,
         "url": url_to_message,
@@ -113,6 +118,7 @@ async def new_dav_request(request: Request, db: Database = Depends(get_db)):
         "pid": auth_session.id,
         "controller_host": controller_host,
         "challenge_poll_uri": "/poll",
+        "deep_link_url": deep_link_proof_url,
     }
 
     # Prepare the template

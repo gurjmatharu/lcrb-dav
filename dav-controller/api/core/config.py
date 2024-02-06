@@ -11,6 +11,7 @@ from typing import Optional, Union
 import structlog
 from pydantic import BaseSettings
 
+
 # Removed in later versions of python
 def strtobool(val: str | bool) -> bool:
     """Convert a string representation of truth to a boolean (True or False).
