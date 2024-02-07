@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Union
+from typing import List, Optional, Union
 from uuid import UUID
 
 import requests

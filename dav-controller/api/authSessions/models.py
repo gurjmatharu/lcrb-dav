@@ -25,6 +25,7 @@ class AuthSessionBase(BaseModel):
         + timedelta(seconds=settings.CONTROLLER_PRESENTATION_EXPIRE_TIME)
     )
     metadata: dict
+    notify_endpoint: str
 
     class Config:
         allow_population_by_field_name = True

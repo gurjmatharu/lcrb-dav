@@ -19,7 +19,6 @@ from .routers import (
     acapy_handler,
     age_verification,
     presentation_request,
-    well_known_oid_config,
 )
 from .db.session import init_db, get_db
 from .routers.socketio import sio_app
@@ -49,7 +48,9 @@ def get_application() -> FastAPI:
 app = get_application()
 app.include_router(acapy_handler.router, prefix="/webhooks", include_in_schema=False)
 app.include_router(presentation_request.router, include_in_schema=False)
-
+app.include_router(
+    age_verification.router, tags=["Digital Age Verification"], include_in_schema=False
+)
 # Connect the websocket server to run within the FastAPI app
 app.mount("/ws", sio_app)
 
