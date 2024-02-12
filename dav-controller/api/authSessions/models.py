@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 from enum import StrEnum, auto
-from typing import Dict
+from typing import Dict, Optional
 
 from api.core.acapy.client import AcapyClient
 from api.core.models import UUIDModel
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 from ..core.config import settings
 
@@ -24,8 +24,18 @@ class AuthSessionBase(BaseModel):
         default=datetime.now()
         + timedelta(seconds=settings.CONTROLLER_PRESENTATION_EXPIRE_TIME)
     )
-    metadata: dict
-    notify_endpoint: str
+    metadata: Optional[dict] = None
+    notify_endpoint: Optional[str] = None
+
+    # @validator('metadata')
+    # def prevent_dict_none(cls, v):
+    #     assert v is not None, 'metadata may not be None'
+    #     return v
+
+    # @validator('notify_endpoint')
+    # def prevent_str_none(cls, v):
+    #     assert v is not None, 'notify_endpoint may not be None'
+    #     return v
 
     class Config:
         allow_population_by_field_name = True

@@ -1,4 +1,7 @@
 import json
+import time
+
+from datetime import datetime
 from typing import List, Optional, Union
 from uuid import UUID
 
@@ -42,13 +45,14 @@ class AcapyClient:
         self,
         name: str = "age-verification",
         nonce: str = "1234567890",
-        age: int = 18,
+        age: int = 19,
         attrib_names_list: List[str] = ["picture"],
         revocation: bool = True,
         attrib_ident: str = "picture",
         predicate_ident: str = "birthdate_GE",
         cred_def_id: str = None,
         schema_name: str = None,
+        schema_version: str = None,
     ):
         result = {
             "name": name,
@@ -57,31 +61,29 @@ class AcapyClient:
             "requested_attributes": {},
             "requested_predicates": {},
         }
-        d = datetime.date.today()
-        birth_date = datetime.date(d.year - age, d.month, d.day)
+        d = datetime.today()
+        birth_date = datetime(d.year - age, d.month, d.day)
         birth_date_format = "%Y%m%d"
-        if revocation:
-            result["requested_attributes"]["non_revoked"] = {"to": int(time.time() - 1)}
-
-            result["requested_predicates"]["non_revoked"] = {"to": int(time.time() - 1)}
         req_attrib_ident = f"0_{attrib_ident}_uuid"
         req_predicate_ident = f"0_{predicate_ident}_uuid"
-        if schema_name:
+        if schema_name and schema_version:
             result["requested_attributes"][req_attrib_ident] = {
                 "names": attrib_names_list,
                 "restrictions": [
                     {
                         "schema_name": schema_name,
+                        "schema_version": schema_version,
                     }
                 ],
             }
             result["requested_predicates"][req_predicate_ident] = {
                 "name": "birthdate_dateint",
-                "p_type": "<=",
+                "p_type": ">",
                 "p_value": int(birth_date.strftime(birth_date_format)),
                 "restrictions": [
                     {
                         "schema_name": schema_name,
+                        "schema_version": schema_version,
                     }
                 ],
             }
@@ -96,13 +98,22 @@ class AcapyClient:
             }
             result["requested_predicates"][req_predicate_ident] = {
                 "name": "birthdate_dateint",
-                "p_type": "<=",
+                "p_type": ">",
                 "p_value": int(birth_date.strftime(birth_date_format)),
                 "restrictions": [
                     {
                         "cred_def_id": cred_def_id,
                     }
                 ],
+            }
+        if revocation:
+            result["requested_attributes"][req_attrib_ident]["non_revoked"] = {
+                "from": int(time.time()),
+                "to": int(time.time()),
+            }
+            result["requested_predicates"][req_predicate_ident]["non_revoked"] = {
+                "from": int(time.time()),
+                "to": int(time.time()),
             }
         return result
 
@@ -115,11 +126,10 @@ class AcapyClient:
                 "proof_request": presentation_request_configuration
             }
         else:
-            d = datetime.date.today()
-            birth_date = datetime.date(d.year - age, d.month, d.day)
-            time_now = int(time.time())
             present_proof_payload = {
-                "proof_request": self.generate_verification_proof_request()
+                "proof_request": self.generate_verification_proof_request(
+                    schema_name="Person", schema_version="1.0"
+                )
             }
 
         resp_raw = requests.post(

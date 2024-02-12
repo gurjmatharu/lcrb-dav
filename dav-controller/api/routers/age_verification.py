@@ -1,6 +1,6 @@
 import base64
 import io
-from typing import cast
+from typing import cast, Mapping
 import uuid
 from datetime import datetime
 from urllib.parse import urlencode
@@ -33,6 +33,24 @@ logger: structlog.typing.FilteringBoundLogger = structlog.getLogger(__name__)
 router = APIRouter()
 
 
+def pad(val: str) -> str:
+    """Pad base64 values."""
+    padlen = 4 - len(val) % 4
+    return val if padlen > 2 else (val + "=" * padlen)
+
+
+def b64_to_bytes(val: str, urlsafe=False) -> bytes:
+    """Convert a base 64 string to bytes."""
+    if urlsafe:
+        return base64.urlsafe_b64decode(pad(val))
+    return base64.b64decode(pad(val))
+
+
+def content(encoded_data: str) -> Mapping:
+    """Return attachment content."""
+    return json.loads(b64_to_bytes(encoded_data))
+
+
 @log_debug
 @router.get(f"/age-verification/{{pid}}")
 async def get_dav_request(pid: str, db: Database = Depends(get_db)):
@@ -62,13 +80,26 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             deliver_notification(
                 "status", {"status": "expired"}, auth_session.notify_endpoint
             )
+    # For testing
+    logger.error(
+        f"--- auth_session.proof_status --- : {str(auth_session.proof_status)}"
+    )
     if auth_session.proof_status == AuthSessionState.SUCCESS:
         pres_exch = auth_session.presentation_exchange
         # Needs to be checked
-        pic_b64_enc = pres_exch["presentation~attach"][0]["picture"]
+        proof = content(pres_exch["presentations~attach"][0]["data"]["base64"])
+        # For testing
+        logger.error(f"--- proof --- : {str(proof)}")
+        pic_b64_enc = None
+        return {
+            "proof_status": auth_session.proof_status,
+            "verified_picture": pic_b64_enc,
+            "id": str(auth_session.id),
+            "notify_endpoint": auth_session.notify_endpoint,
+            "metadata": auth_session.metadata,
+        }
     return {
         "proof_status": auth_session.proof_status,
-        "verified_picture": pic_b64_enc,
         "id": str(auth_session.id),
         "notify_endpoint": auth_session.notify_endpoint,
         "metadata": auth_session.metadata,
@@ -132,10 +163,10 @@ async def render_new_dav_request(request: Request, db: Database = Depends(get_db
     response = client.create_presentation_request()
 
     new_auth_session = AuthSessionCreate(
-        metadata=req_query_params["metadata"],
+        metadata=req_query_params.get("metadata"),
         pres_exch_id=response.presentation_exchange_id,
         presentation_exchange=response.dict(),
-        notify_endpoint=req_query_params["notify_endpoint"],
+        notify_endpoint=req_query_params.get("notify_endpoint"),
     )
 
     # save AuthSession
@@ -152,9 +183,7 @@ async def render_new_dav_request(request: Request, db: Database = Depends(get_db
     image_contents = base64.b64encode(buff.getvalue()).decode("utf-8")
 
     # This is the payload to send to the template
-    deep_link_proof_url = (
-        f"bcwallet://aries_connection_invitation?{url_to_message.split('?')[1]}"
-    )
+    deep_link_proof_url = f"bcwallet://aries_connection_invitation?{url_to_message}"
     data = {
         "image_contents": image_contents,
         "url": url_to_message,

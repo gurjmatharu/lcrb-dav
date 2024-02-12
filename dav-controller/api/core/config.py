@@ -161,7 +161,7 @@ class GlobalConfig(BaseSettings):
     )
     # The number of seconds to wait for a presentation to be verified, Default: 10
     CONTROLLER_PRESENTATION_EXPIRE_TIME: Union[int, str] = os.environ.get(
-        "CONTROLLER_PRESENTATION_EXPIRE_TIME", 10
+        "CONTROLLER_PRESENTATION_EXPIRE_TIME", 20
     )
 
     ACAPY_AGENT_URL: Optional[str] = os.environ.get("ACAPY_AGENT_URL")
