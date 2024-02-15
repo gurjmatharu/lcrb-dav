@@ -1,0 +1,21 @@
+version: "3"
+services:
+  ngrok:
+    image: ngrok/ngrok
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    ports:
+      - 4046:4040
+    command:
+      - "start"
+      - "--all"
+      - "--config"
+      - "/etc/ngrok.yml"
+    volumes:
+          - ./ngrok.yml:/etc/ngrok.yml
+    networks:
+      - dav_controller
+
+networks:
+  dav_controller:
+    driver: bridge

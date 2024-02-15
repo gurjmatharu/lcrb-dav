@@ -80,16 +80,10 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             deliver_notification(
                 "status", {"status": "expired"}, auth_session.notify_endpoint
             )
-    # For testing
-    logger.error(
-        f"--- auth_session.proof_status --- : {str(auth_session.proof_status)}"
-    )
     if auth_session.proof_status == AuthSessionState.SUCCESS:
         pres_exch = auth_session.presentation_exchange
-        # Needs to be checked
         proof = content(pres_exch["presentations~attach"][0]["data"]["base64"])
-        # For testing
-        logger.error(f"--- proof --- : {str(proof)}")
+        # Needs to be checked
         pic_b64_enc = None
         return {
             "proof_status": auth_session.proof_status,
