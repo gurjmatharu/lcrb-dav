@@ -16,9 +16,10 @@ from pyop.exceptions import InvalidAuthenticationRequest
 
 from ..authSessions.crud import AuthSessionCreate, AuthSessionCRUD
 from ..authSessions.models import AuthSessionPatch, AuthSessionState
-from ..core.acapy.client import AcapyClient
+from ..core.acapy.client import AcapyClient, PresExProofConfig
 from ..core.config import settings
 from ..core.logger_util import log_debug
+from ..db.collections import COLLECTION_NAMES
 from ..db.session import get_db
 
 # Access to the websocket
@@ -31,7 +32,7 @@ from ..templates.helpers import add_asset
 logger: structlog.typing.FilteringBoundLogger = structlog.getLogger(__name__)
 
 router = APIRouter()
-
+BASE_64_ENC_REVEALED_ATTRIBS = ["picture"]
 
 def pad(val: str) -> str:
     """Pad base64 values."""
@@ -82,16 +83,39 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             )
     if auth_session.proof_status == AuthSessionState.SUCCESS:
         pres_exch = auth_session.presentation_exchange
-        proof = content(pres_exch["presentations~attach"][0]["data"]["base64"])
-        # Needs to be checked
-        pic_b64_enc = None
-        return {
+        col = db.get_collection(COLLECTION_NAMES.PRES_EX_ID_TO_PROOF_REQ_CONFIG_ID)
+        pres_ex_proof_req_id_dict = col.find_one(
+            {"pres_exch_id": auth_session.pres_exch_id}
+        )
+        pres_ex_proof_req_id = PresExProofConfig(**pres_ex_proof_req_id_dict)
+        proof_req_id = pres_ex_proof_req_id.proof_req_config_id
+        with open("/app/api/proof_config.yaml", "r") as stream:
+            config_dict = yaml.safe_load(stream)
+            proof_req_dict = config_dict[proof_req_id]["proof_request"]
+        proof_dict = content(pres_exch["presentations~attach"][0]["data"]["base64"])
+        proofs = proof_dict["proofs"]
+        resp_incl_revealed_attibs = {}
+        for proof in proofs:
+            revealed_attrs_dict = proof["primary_proof"]["eq_proof"]["revealed_attrs"]
+            # Testing
+            logger.error(f" --- {str(revealed_attrs_dict)}")
+            for attr in revealed_attrs_dict:
+                if attr in config_dict[proof_req_id]["ui-revealed-attribs"]:
+                    if attr in BASE_64_ENC_REVEALED_ATTRIBS:
+                        resp_incl_revealed_attibs[attr] = base64.b64encode(revealed_attrs_dict[attr]).decode("utf-8")
+                    else:
+                        resp_incl_revealed_attibs[attr] = revealed_attrs_dict[attr]
+        # Needs to be made flexible for different proof requests
+        response = {
             "proof_status": auth_session.proof_status,
-            "verified_picture": pic_b64_enc,
             "id": str(auth_session.id),
             "notify_endpoint": auth_session.notify_endpoint,
-            "metadata": auth_session.metadata,
+            "metadata": auth_session.metadata or {},
         }
+        response["metadata"]["revealed_attributes"] = resp_incl_revealed_attibs
+        # Testing
+        logger.error(f" --- {str(response)}")
+        return response
     return {
         "proof_status": auth_session.proof_status,
         "id": str(auth_session.id),
@@ -112,7 +136,7 @@ async def new_dav_request(request: Request, db: Database = Depends(get_db)):
     new_user_id = str(uuid.uuid4())
 
     # retrieve presentation_request config.
-    client = AcapyClient()
+    client = AcapyClient(db=db)
 
     # Create presentation_request to show on screen
     response = client.create_presentation_request()
@@ -151,7 +175,7 @@ async def render_new_dav_request(request: Request, db: Database = Depends(get_db
     new_user_id = str(uuid.uuid4())
 
     # retrieve presentation_request config.
-    client = AcapyClient()
+    client = AcapyClient(db=db)
 
     # Create presentation_request to show on screen
     response = client.create_presentation_request()

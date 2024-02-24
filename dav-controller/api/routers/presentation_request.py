@@ -70,7 +70,7 @@ async def send_connectionless_proof_req(
                 "status", {"status": "in_progress"}, auth_session.notify_endpoint
             )
 
-    client = AcapyClient()
+    client = AcapyClient(db=db)
     use_public_did = (
         not settings.USE_OOB_PRESENT_PROOF
     ) and settings.USE_OOB_LOCAL_DID_SERVICE

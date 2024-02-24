@@ -334,5 +334,6 @@ _build/
 dav-controller/private/
 dav-controller/static/
 dav-controller/signing-keys/
+dav-controller/api/proof_config.yaml
 
 wallet.txt

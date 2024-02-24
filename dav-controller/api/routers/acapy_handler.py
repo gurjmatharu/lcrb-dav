@@ -28,7 +28,7 @@ async def post_topic(request: Request, topic: str, db: Database = Depends(get_db
     """Called by aca-py agent."""
     logger.info(f">>> post_topic : topic={topic}")
 
-    client = AcapyClient()
+    client = AcapyClient(db=db)
     if topic == "present_proof":
         webhook_body = await _parse_webhook_body(request)
         logger.info(f">>>> pres_exch_id: {webhook_body['presentation_exchange_id']}")
