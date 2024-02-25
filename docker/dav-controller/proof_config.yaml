@@ -1,5 +1,5 @@
-# Currently only the proof for age-verification-bc-person-crdential request is supported
-age-verification-bc-person-crdential:
+# Currently only the proof for age-verification-bc-person-credential request is supported
+age-verification-bc-person-credential:
   proof-request:
     name: age-verification
     version: "1.0"
