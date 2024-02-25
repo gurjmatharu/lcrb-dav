@@ -229,7 +229,7 @@ deleteVolumes() {
   _projectName=${COMPOSE_PROJECT_NAME:-dav}
 
   echo "Stopping and removing any running containers ..."
-  docker-compose -f docker-compose.yaml -f -f docker-compose-ngrok.yaml down -v
+  docker compose -f docker-compose.yaml -f -f docker-compose-ngrok.yaml down -v
 
   _pattern="^${_projectName}_\|^docker_"
   _volumes=$(docker volume ls -q | grep ${_pattern})
@@ -341,17 +341,17 @@ start|up)
 
   configureEnvironment $@
 
-  docker-compose up -d ${_startupParams} ${DEFAULT_CONTAINERS} ${ACAPY_CONTAINERS} ${PROD_CONTAINERS}
+  docker compose up -d ${_startupParams} ${DEFAULT_CONTAINERS} ${ACAPY_CONTAINERS} ${PROD_CONTAINERS}
 
-  docker-compose logs -f
+  docker compose logs -f
  ;;
 logs)
   configureEnvironment $@
-  docker-compose logs -f
+  docker compose logs -f
   ;;
 stop)
   configureEnvironment
-  docker-compose stop
+  docker compose stop
   docker compose -f docker-compose-ngrok.yaml stop
   ;;
 rm|down)  
