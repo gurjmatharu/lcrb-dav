@@ -38,7 +38,7 @@ services:
       - 5678:5678
     volumes:
       - ../dav-controller:/app:rw
-      - ../proof_config.yaml:/app/api/proof_config.yaml
+      - ./dav-controller/proof_config.yaml:/app/api/proof_config.yaml
     networks:
       - dav_controller
 
