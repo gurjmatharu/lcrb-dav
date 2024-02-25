@@ -83,7 +83,7 @@ class AcapyClient:
 
     def generate_verification_proof_request(
         self,
-        proof_config_ident: str = "age-verification-bc-person-crdential",
+        proof_config_ident: str = "age-verification-bc-person-credential",
     ):
         proof_req_dict = None
         with open("/app/api/proof_config.yaml", "r") as stream:
@@ -110,7 +110,7 @@ class AcapyClient:
 
     def create_presentation_request(
         self,
-        proof_config_ident: str = "age-verification-bc-person-crdential",
+        proof_config_ident: str = "age-verification-bc-person-credential",
         presentation_request_configuration: dict = None,
     ) -> CreatePresentationResponse:
         logger.debug(">>> create_presentation_request")

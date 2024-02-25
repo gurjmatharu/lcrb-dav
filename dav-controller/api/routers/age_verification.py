@@ -1,4 +1,5 @@
 import base64
+import json
 import io
 from typing import cast, Mapping
 import uuid
@@ -13,6 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from jinja2 import Template
 from pymongo.database import Database
 from pyop.exceptions import InvalidAuthenticationRequest
+import yaml
 
 from ..authSessions.crud import AuthSessionCreate, AuthSessionCRUD
 from ..authSessions.models import AuthSessionPatch, AuthSessionState
@@ -83,6 +85,7 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             )
     if auth_session.proof_status == AuthSessionState.SUCCESS:
         pres_exch = auth_session.presentation_exchange
+        logger.debug(f"PRES_EXCH: {pres_exch}")
         col = db.get_collection(COLLECTION_NAMES.PRES_EX_ID_TO_PROOF_REQ_CONFIG_ID)
         pres_ex_proof_req_id_dict = col.find_one(
             {"pres_exch_id": auth_session.pres_exch_id}
@@ -91,20 +94,11 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
         proof_req_id = pres_ex_proof_req_id.proof_req_config_id
         with open("/app/api/proof_config.yaml", "r") as stream:
             config_dict = yaml.safe_load(stream)
-            proof_req_dict = config_dict[proof_req_id]["proof_request"]
-        proof_dict = content(pres_exch["presentations~attach"][0]["data"]["base64"])
-        proofs = proof_dict["proofs"]
+        proof_dict = pres_exch["presentation"]["requested_proof"]["revealed_attr_groups"]["req_attr_0"]["values"]
         resp_incl_revealed_attibs = {}
-        for proof in proofs:
-            revealed_attrs_dict = proof["primary_proof"]["eq_proof"]["revealed_attrs"]
-            # Testing
-            logger.error(f" --- {str(revealed_attrs_dict)}")
-            for attr in revealed_attrs_dict:
-                if attr in config_dict[proof_req_id]["ui-revealed-attribs"]:
-                    if attr in BASE_64_ENC_REVEALED_ATTRIBS:
-                        resp_incl_revealed_attibs[attr] = base64.b64encode(revealed_attrs_dict[attr]).decode("utf-8")
-                    else:
-                        resp_incl_revealed_attibs[attr] = revealed_attrs_dict[attr]
+        for key,value in proof_dict.items():
+            resp_incl_revealed_attibs[key] = value["raw"]
+
         # Needs to be made flexible for different proof requests
         response = {
             "proof_status": auth_session.proof_status,
