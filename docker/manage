@@ -142,6 +142,9 @@ configureEnvironment() {
     esac
   done
 
+  ## proof configuration selection
+  export DAV_PROOF_CONFIG_ID="age-verification-bc-person-credential"
+
   ## global
   export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dav}"
   export LOG_LEVEL=${LOG_LEVEL:-"DEBUG"}
@@ -314,7 +317,7 @@ initializeUserPrompts() {
   fi
   ######
 
-  echo "AGENT_WALLET_SEED=$(generateSeed vc-authn-oidc)" >> .env
+  echo "AGENT_WALLET_SEED=$(generateSeed dav)" >> .env
   startNgrokContainers
   setNgrokEndpoints
 }

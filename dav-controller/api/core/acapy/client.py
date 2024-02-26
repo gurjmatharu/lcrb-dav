@@ -83,9 +83,13 @@ class AcapyClient:
 
     def generate_verification_proof_request(
         self,
-        proof_config_ident: str = "age-verification-bc-person-credential",
+        proof_config_ident: str = None,
     ):
         proof_req_dict = None
+        if not proof_config_ident:
+            proof_config_ident = os.environ.get(
+                "DAV_PROOF_CONFIG_ID", "age-verification-bc-person-credential"
+            )
         with open("/app/api/proof_config.yaml", "r") as stream:
             config_dict = yaml.safe_load(stream)
             try:
@@ -105,15 +109,19 @@ class AcapyClient:
             label = os.environ.get("REQ_PRED_LABEL_PREFIX", "req_pred_") + str(i)
             req_pred_dict[label] = req_pred
         proof_req_dict["requested_predicates"] = req_pred_dict
-        logger.error(f"--- {proof_req_dict} ---") 
+        logger.error(f"--- {proof_req_dict} ---")
         return proof_req_dict
 
     def create_presentation_request(
         self,
-        proof_config_ident: str = "age-verification-bc-person-credential",
+        proof_config_ident: str = None,
         presentation_request_configuration: dict = None,
     ) -> CreatePresentationResponse:
         logger.debug(">>> create_presentation_request")
+        if not proof_config_ident:
+            proof_config_ident = os.environ.get(
+                "DAV_PROOF_CONFIG_ID", "age-verification-bc-person-credential"
+            )
         if presentation_request_configuration:
             present_proof_payload = {
                 "proof_request": presentation_request_configuration
