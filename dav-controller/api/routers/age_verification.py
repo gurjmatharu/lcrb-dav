@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import io
 from typing import cast, Mapping
 import uuid
@@ -35,6 +36,7 @@ logger: structlog.typing.FilteringBoundLogger = structlog.getLogger(__name__)
 
 router = APIRouter()
 BASE_64_ENC_REVEALED_ATTRIBS = ["picture"]
+
 
 def pad(val: str) -> str:
     """Pad base64 values."""
@@ -92,12 +94,16 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
         )
         pres_ex_proof_req_id = PresExProofConfig(**pres_ex_proof_req_id_dict)
         proof_req_id = pres_ex_proof_req_id.proof_req_config_id
-        with open("/app/api/proof_config.yaml", "r") as stream:
-            config_dict = yaml.safe_load(stream)
-        proof_dict = pres_exch["presentation"]["requested_proof"]["revealed_attr_groups"]["req_attr_0"]["values"]
         resp_incl_revealed_attibs = {}
-        for key,value in proof_dict.items():
-            resp_incl_revealed_attibs[key] = value["raw"]
+        proof_revealed_attr_group_dict = pres_exch["presentation"]["requested_proof"][
+            "revealed_attr_groups"
+        ]
+        for req_attr in proof_revealed_attr_group_dict:
+            revealed_attr_value_dict = proof_revealed_attr_group_dict[req_attr][
+                "values"
+            ]
+            for key, value in revealed_attr_value_dict.items():
+                resp_incl_revealed_attibs[key] = value["raw"]
 
         # Needs to be made flexible for different proof requests
         response = {
@@ -196,6 +202,12 @@ async def render_new_dav_request(request: Request, db: Database = Depends(get_db
 
     # This is the payload to send to the template
     deep_link_proof_url = f"bcwallet://aries_connection_invitation?{url_to_message}"
+    with open("/app/api/proof_config.yaml", "r") as stream:
+        config_dict = yaml.safe_load(stream)
+    proof_config_ident = os.environ.get(
+        "DAV_PROOF_CONFIG_ID", "age-verification-bc-person-credential"
+    )
+    display_msg = config_dict[proof_config_ident]["display-text"]
     data = {
         "image_contents": image_contents,
         "url": url_to_message,
@@ -204,6 +216,7 @@ async def render_new_dav_request(request: Request, db: Database = Depends(get_db
         "pid": auth_session.id,
         "controller_host": controller_host,
         "deep_link_url": deep_link_proof_url,
+        "display_msg": display_msg,
     }
 
     # Prepare the template
