@@ -1,0 +1,73 @@
+# Currently only the proof for age-verification-bc-person-credential request is supported
+age-verification-bc-person-credential:
+  proof-request:
+    name: age-verification
+    version: "1.0"
+    requested_attributes:
+      - names: 
+          - picture
+        restrictions:
+          - schema_name: Person
+          #   issuer_did: L6ASjmDDbDH7yPL1t2yFj9
+          # - schema_name: Person
+          #   issuer_did: QEquAHkM35w4XVT3Ku5yat
+          # - schema_name: Person
+          #   issuer_did: M6dhuFj5UwbhWkSLmvYSPc
+        non_revoked: 
+          from: $now
+          to: $now
+    requested_predicates:
+      - name: birthdate_dateint
+        p_type: <=
+        p_value: $threshold_date_19
+        restrictions:
+          - schema_name: Person
+          #   issuer_did: L6ASjmDDbDH7yPL1t2yFj9
+          # - schema_name: Person
+          #   issuer_did: QEquAHkM35w4XVT3Ku5yat
+          # - schema_name: Person
+          #   issuer_did: M6dhuFj5UwbhWkSLmvYSPc
+        non_revoked: 
+          from: $now
+          to: $now
+  ui-revealed-attribs:
+    - picture
+# test-bc-person-crdential:
+#   proof-request:
+#     name: test-verification
+#     version: "1.0"
+#     requested_attributes:
+#       - names: 
+#           - picture
+#           - given_names
+#           - family_name
+#           - country
+#         restrictions:
+#           - schema_name: Person
+#           #   issuer_did: L6ASjmDDbDH7yPL1t2yFj9
+#           # - schema_name: Person
+#           #   issuer_did: QEquAHkM35w4XVT3Ku5yat
+#           # - schema_name: Person
+#           #   issuer_did: M6dhuFj5UwbhWkSLmvYSPc
+#         non_revoked: 
+#           from: $now
+#           to: $now
+#     requested_predicates:
+#       - name: birthdate_dateint
+#         p_type: <=
+#         p_value: $threshold_date_19
+#         restrictions:
+#           - schema_name: Person
+#           #   issuer_did: L6ASjmDDbDH7yPL1t2yFj9
+#           # - schema_name: Person
+#           #   issuer_did: QEquAHkM35w4XVT3Ku5yat
+#           # - schema_name: Person
+#           #   issuer_did: M6dhuFj5UwbhWkSLmvYSPc
+#         non_revoked: 
+#           from: $now
+#           to: $now
+#   ui-revealed-attribs:
+#     - picture
+#     - given_names
+#     - family_name
+#     - country
