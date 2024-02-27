@@ -73,8 +73,6 @@ class AgeVerificationModelCreate(BaseModel):
 class AgeVerificationModelRead(AgeVerificationModelCreate):
     status: str
     id: str
-    notify_endpoint: str | None
-    metadata: dict
 
 
 class AgeVerificationModelCreateRead(AgeVerificationModelRead):
