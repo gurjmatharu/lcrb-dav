@@ -48,7 +48,7 @@ with open((Path(__file__).parent.parent / "logconf.json").resolve()) as user_fil
     logging.config.dictConfig(file_contents["logger"])
 
 
-def determin_log_level():
+def determine_log_level():
     log_level = os.environ.get("LOG_LEVEL")
     if log_level == "DEBUG":
         return logging.DEBUG
@@ -65,7 +65,7 @@ def determin_log_level():
 logging.basicConfig(
     format="%(message)s",
     stream=sys.stdout,
-    level=determin_log_level(),
+    level=determine_log_level(),
 )
 
 shared_processors = [
@@ -152,7 +152,9 @@ class GlobalConfig(BaseSettings):
     DB_USER: str = os.environ.get("DAV_CONTROLLER_DB_USER", "davcontrolleruser")
     DB_PASS: str = os.environ.get("DAV_CONTROLLER_DB_USER_PWD", "davcontrollerpass")
 
-    MONGODB_URL: str = f"""mongodb://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}?retryWrites=true&w=majority"""  # noqa: E501
+    MONGODB_URL: str = (
+        f"""mongodb://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}?retryWrites=true&w=majority"""  # noqa: E501
+    )
 
     CONTROLLER_URL: Optional[str] = os.environ.get("CONTROLLER_URL")
     # Where to send users when trying to scan with their mobile camera (not a wallet)

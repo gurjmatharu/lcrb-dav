@@ -38,3 +38,44 @@ class UUIDModel(BaseModel):
 
     class Config:
         json_encoders = {ObjectId: str}
+
+
+class TimestampModel(BaseModel):
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class GenericErrorMessage(BaseModel):
+    detail: str
+
+
+# Currently used as a TypedDict since it can be used as a part of a
+# Pydantic class but a Pydantic class can not inherit from TypedDict
+# and and BaseModel
+class RevealedAttribute(TypedDict, total=False):
+    sub_proof_index: int
+    values: dict
+
+
+class AgeVerificationModelCreate(BaseModel):
+    notify_endpoint: str | None
+    metadata: dict | None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "notify_endpoint": "https://my-url/webhook#api-key",
+                "metadata": {"other_system_id": 123},
+            }
+        }
+
+
+class AgeVerificationModelRead(AgeVerificationModelCreate):
+    status: str
+    id: str
+    notify_endpoint: str | None
+    metadata: dict
+
+
+class AgeVerificationModelCreateRead(AgeVerificationModelRead):
+    url: str

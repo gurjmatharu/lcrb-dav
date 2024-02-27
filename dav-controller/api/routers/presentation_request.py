@@ -32,7 +32,7 @@ async def send_connectionless_proof_req(
     pres_exch_id: str, req: Request, db: Database = Depends(get_db)
 ):
     """
-    If the user scanes the QR code with a mobile camera,
+    If the user scans the QR code with a mobile camera,
     they will be redirected to a help page.
     """
     data = {

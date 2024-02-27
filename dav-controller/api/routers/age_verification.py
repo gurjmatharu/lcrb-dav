@@ -1,27 +1,34 @@
 import base64
+import io
 import json
 import os
-import io
-from typing import cast, Mapping
 import uuid
 from datetime import datetime
+from typing import Mapping, cast
 from urllib.parse import urlencode
 
 import qrcode
 import structlog
+import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi import status as http_status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from jinja2 import Template
 from pymongo.database import Database
 from pyop.exceptions import InvalidAuthenticationRequest
-import yaml
 
 from ..authSessions.crud import AuthSessionCreate, AuthSessionCRUD
 from ..authSessions.models import AuthSessionPatch, AuthSessionState
 from ..core.acapy.client import AcapyClient, PresExProofConfig
+from ..core.auth import get_api_key
 from ..core.config import settings
 from ..core.logger_util import log_debug
+from ..core.models import (
+    AgeVerificationModelCreate,
+    AgeVerificationModelRead,
+    AgeVerificationModelCreateRead,
+    GenericErrorMessage,
+)
 from ..db.collections import COLLECTION_NAMES
 from ..db.session import get_db
 
@@ -35,29 +42,18 @@ from ..templates.helpers import add_asset
 logger: structlog.typing.FilteringBoundLogger = structlog.getLogger(__name__)
 
 router = APIRouter()
-BASE_64_ENC_REVEALED_ATTRIBS = ["picture"]
-
-
-def pad(val: str) -> str:
-    """Pad base64 values."""
-    padlen = 4 - len(val) % 4
-    return val if padlen > 2 else (val + "=" * padlen)
-
-
-def b64_to_bytes(val: str, urlsafe=False) -> bytes:
-    """Convert a base 64 string to bytes."""
-    if urlsafe:
-        return base64.urlsafe_b64decode(pad(val))
-    return base64.b64decode(pad(val))
-
-
-def content(encoded_data: str) -> Mapping:
-    """Return attachment content."""
-    return json.loads(b64_to_bytes(encoded_data))
 
 
 @log_debug
-@router.get(f"/age-verification/{{pid}}")
+@router.get(
+    f"/age-verification/{{pid}}",
+    response_description="Get the specified age verification record",
+    status_code=http_status.HTTP_200_OK,
+    response_model=AgeVerificationModelRead,
+    responses={http_status.HTTP_409_CONFLICT: {"model": GenericErrorMessage}},
+    response_model_exclude_unset=True,
+    dependencies=[Depends(get_api_key)],
+)
 async def get_dav_request(pid: str, db: Database = Depends(get_db)):
     """Called by authorize webpage to see if request is verified."""
     auth_session = await AuthSessionCRUD(db).get(pid)
@@ -116,24 +112,30 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
         # Testing
         logger.error(f" --- {str(response)}")
         return response
-    return {
-        "proof_status": auth_session.proof_status,
-        "id": str(auth_session.id),
-        "notify_endpoint": auth_session.notify_endpoint,
-        "metadata": auth_session.metadata,
-    }
+
+    return AgeVerificationModelRead(
+        id=str(auth_session.id),
+        status=auth_session.proof_status,
+        notify_endpoint=auth_session.notify_endpoint,
+        metadata=auth_session.metadata,
+    )
 
 
 # HTMLResponse
 @log_debug
-@router.post("/age-verification", response_class=JSONResponse)
-async def new_dav_request(request: Request, db: Database = Depends(get_db)):
+@router.post(
+    "/age-verification",
+    response_description="Get the specified age verification record",
+    status_code=http_status.HTTP_201_CREATED,
+    response_model=AgeVerificationModelRead,
+    responses={http_status.HTTP_409_CONFLICT: {"model": GenericErrorMessage}},
+    response_model_exclude_unset=True,
+    dependencies=[Depends(get_api_key)],
+)
+async def new_dav_request(
+    request: AgeVerificationModelCreate, db: Database = Depends(get_db)
+):
     logger.debug(">>> new_dav_request")
-
-    req_query_params = request.query_params._dict
-
-    #  create proof for this request
-    new_user_id = str(uuid.uuid4())
 
     # retrieve presentation_request config.
     client = AcapyClient(db=db)
@@ -142,10 +144,10 @@ async def new_dav_request(request: Request, db: Database = Depends(get_db)):
     response = client.create_presentation_request()
 
     new_auth_session = AuthSessionCreate(
-        metadata=req_query_params["metadata"],
+        metadata=request.metadata,
         pres_exch_id=response.presentation_exchange_id,
         presentation_exchange=response.dict(),
-        notify_endpoint=req_query_params["notify_endpoint"],
+        notify_endpoint=request.notify_endpoint,
     )
 
     # save AuthSession
@@ -157,11 +159,13 @@ async def new_dav_request(request: Request, db: Database = Depends(get_db)):
         controller_host + "/url/pres_exch/" + str(auth_session.pres_exch_id)
     )
 
-    return {
-        "id": str(auth_session.id),
-        "status": AuthSessionState.INITIATED,
-        "url": url_to_message,
-    }
+    return AgeVerificationModelCreateRead(
+        id=str(auth_session.id),
+        status=AuthSessionState.INITIATED,
+        url=url_to_message,
+        notify_endpoint=request.notify_endpoint,
+        metadata=request.metadata,
+    )
 
 
 @log_debug
