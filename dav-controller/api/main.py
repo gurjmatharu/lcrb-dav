@@ -40,7 +40,6 @@ def get_application() -> FastAPI:
         title=settings.TITLE,
         description=settings.DESCRIPTION,
         debug=settings.DEBUG,
-        # middleware=None,
     )
     return application
 
@@ -49,7 +48,7 @@ app = get_application()
 app.include_router(acapy_handler.router, prefix="/webhooks", include_in_schema=False)
 app.include_router(presentation_request.router, include_in_schema=False)
 app.include_router(
-    age_verification.router, tags=["Digital Age Verification"], include_in_schema=False
+    age_verification.router, tags=["age-verification"], include_in_schema=True
 )
 # Connect the websocket server to run within the FastAPI app
 app.mount("/ws", sio_app)
@@ -113,9 +112,8 @@ async def logging_middleware(request: Request, call_next) -> Response:
 @app.on_event("startup")
 async def on_tenant_startup():
     """Register any events we need to respond to."""
+    logger.info(">>> Starting up new app...")
     await init_db()
-    # await init_provider(await get_db())
-    logger.info(">>> Starting up app new ...")
 
 
 @app.on_event("shutdown")
@@ -124,7 +122,6 @@ def on_tenant_shutdown():
     logger.warning(">>> Shutting down app ...")
 
 
-@app.get("/", tags=["liveness", "readiness"])
 @app.get("/health", tags=["liveness", "readiness"])
 def main():
     return {"status": "ok", "health": "ok"}
