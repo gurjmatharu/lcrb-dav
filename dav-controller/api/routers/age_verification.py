@@ -101,14 +101,16 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             for key, value in revealed_attr_value_dict.items():
                 resp_incl_revealed_attibs[key] = value["raw"]
 
+        metadata = auth_session.metadata or {}
+        metadata["revealed_attributes"] = resp_incl_revealed_attibs
+
         # Needs to be made flexible for different proof requests
-        response = {
-            "proof_status": auth_session.proof_status,
-            "id": str(auth_session.id),
-            "notify_endpoint": auth_session.notify_endpoint,
-            "metadata": auth_session.metadata or {},
-        }
-        response["metadata"]["revealed_attributes"] = resp_incl_revealed_attibs
+        response = AgeVerificationModelRead(
+            status=auth_session.proof_status,
+            id=str(auth_session.id),
+            notify_endpoint=auth_session.notify_endpoint,
+            metadata=metadata,
+        )
         # Testing
         logger.error(f" --- {str(response)}")
         return response
@@ -127,7 +129,7 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
     "/age-verification",
     response_description="Get the specified age verification record",
     status_code=http_status.HTTP_201_CREATED,
-    response_model=AgeVerificationModelRead,
+    response_model=AgeVerificationModelCreateRead,
     responses={http_status.HTTP_409_CONFLICT: {"model": GenericErrorMessage}},
     response_model_exclude_unset=True,
     dependencies=[Depends(get_api_key)],
