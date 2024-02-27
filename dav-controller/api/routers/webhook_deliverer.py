@@ -1,9 +1,12 @@
 import json
+
 import requests
 
 
-def deliver_notification(topic: str, payload: dict, endpoint: str):
-    ret_data = {topic: payload}
-    return requests.post(
-        endpoint, data=json.dumps(payload), headers={"Content-Type": "application/json"}
-    )
+def deliver_notification(payload: dict, endpoint: str):
+    url = endpoint.split("#")[0]
+    api_key = endpoint.split("#")[1]
+    headers = {"Content-Type": "application/json"}
+    if api_key is not None:
+        headers["x-api-key"] = api_key
+    return requests.post(url=url, data=json.dumps(payload), headers=headers)
