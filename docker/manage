@@ -232,7 +232,7 @@ deleteVolumes() {
   _projectName=${COMPOSE_PROJECT_NAME:-dav}
 
   echo "Stopping and removing any running containers ..."
-  docker compose -f docker-compose.yaml -f -f docker-compose-ngrok.yaml down -v
+  docker compose -f docker-compose.yaml -f docker-compose-ngrok.yaml down -v
 
   _pattern="^${_projectName}_\|^docker_"
   _volumes=$(docker volume ls -q | grep ${_pattern})

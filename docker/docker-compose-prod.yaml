@@ -1,0 +1,100 @@
+version: "3"
+services:
+  controller:
+    build:
+      context: ..
+      dockerfile: docker/dav-controller/Dockerfile
+    environment:
+      - LOG_LEVEL=INFO
+      - LOG_WITH_JSON=true
+      - DB_HOST=controller-db
+      - DB_PORT=27017
+      - DB_NAME=dav_db
+      - DAV_CONTROLLER_DB_USER=dav_verifier
+      - CONTROLLER_CAMERA_REDIRECT_URL=wallet_howto
+      - CONTROLLER_PRESENTATION_EXPIRE_TIME=60
+      - ACAPY_TENANCY=single
+      - ACAPY_ADMIN_URL=http://aca-py:8077
+      - ST_ACAPY_ADMIN_API_KEY_NAME=x-api-key
+      - USE_OOB_PRESENT_PROOF=False
+      - DAV_PROOF_CONFIG_ID=${DAV_PROOF_CONFIG_ID}
+      - ST_ACAPY_ADMIN_API_KEY=${AGENT_ADMIN_API_KEY}
+      - DAV_CONTROLLER_DB_USER_PWD=${DAV_CONTROLLER_DB_PWD}
+      - CONTROLLER_URL=${CONTROLLER_URL}
+      - ACAPY_AGENT_URL=${AGENT_ENDPOINT}
+    ports:
+      - ${CONTROLLER_SERVICE_PORT}:5000
+    volumes:
+      - ../dav-controller:/app:rw
+      - ./dav-controller/proof_config_prod.yaml:/app/api/proof_config.yaml
+    networks:
+      - dav_controller
+
+  controller-db:
+    image: mongo:6.0
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=dav_verifier
+      - MONGO_INITDB_DATABASE=dav_db
+      - MONGO_INITDB_ROOT_PASSWORD=${DAV_CONTROLLER_DB_PWD}
+    volumes:
+      - controller-db-data:/data/db
+      - ./mongo/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    restart: unless-stopped
+    networks:
+      - dav_controller
+
+  aca-py:
+    image: ghcr.io/hyperledger/aries-cloudagent-python:py3.9-0.11.0
+    environment:
+      - ACAPY_WALLET_NAME=dav_agent_wallet
+      - ACAPY_WALLET_TYPE=askar
+      - ACAPY_WALLET_LOCAL_DID=true
+      - ACAPY_AUTO_VERIFY_PRESENTATION=true
+      - ACAPY_WALLET_STORAGE_TYPE=postgres_storage
+      - ACAPY_READ_ONLY_LEDGER=true
+      - ACAPY_GENESIS_TRANSACTIONS_LIST=/tmp/ledgers.yaml
+      - ACAPY_LOG_LEVEL=info
+      - http://controller:5000/webhooks
+      - ACAPY_AUTO_PROVISION=true
+      - POSTGRESQL_WALLET_HOST=wallet-db
+      - POSTGRESQL_WALLET_PORT=5432
+      - POSTGRESQL_WALLET_USER=dav_agent
+      - ACAPY_LABEL=${AGENT_NAME}
+      - ACAPY_ENDPOINT=${AGENT_ENDPOINT}
+      - AGENT_ADMIN_API_KEY=${AGENT_ADMIN_API_KEY}
+      - ACAPY_WALLET_KEY=${AGENT_WALLET_ENCRYPTION_KEY}
+      - ACAPY_WALLET_SEED=${AGENT_WALLET_SEED}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - ${AGENT_HTTP_PORT}:${AGENT_HTTP_PORT}
+    networks:
+      - dav_controller
+    volumes:
+      - ./agent/config/ledgers-prod.yaml:/tmp/ledgers.yaml
+    depends_on:
+      - wallet-db
+    entrypoint: /bin/bash
+    command:
+      [
+        "-c",
+        'sleep 15; aca-py start --inbound-transport http ''0.0.0.0'' ${AGENT_HTTP_PORT} --outbound-transport http --wallet-storage-config ''{"url":"wallet-db:5432","max_connections":5}'' --wallet-storage-creds ''{"account":"dav_agent","password":"${POSTGRES_PASSWORD}","admin_account":"dav_agent","admin_password":"${POSTGRES_PASSWORD}"}'' --admin ''0.0.0.0'' 8077 --admin-api-key ${AGENT_ADMIN_API_KEY}',
+      ]
+
+  wallet-db:
+    image: postgres:15.1-alpine
+    environment:
+      - POSTGRES_USER=dav_agent
+      - POSTGRES_DB=dav_wallet
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - dav_controller
+    volumes:
+      - agent-wallet-db:/var/lib/pgsql/data
+
+networks:
+  dav_controller:
+    driver: bridge
+
+volumes:
+  controller-db-data:
+  agent-wallet-db:

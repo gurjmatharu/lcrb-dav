@@ -39,7 +39,7 @@ services:
       - 5678:5678
     volumes:
       - ../dav-controller:/app:rw
-      - ./dav-controller/proof_config.yaml:/app/api/proof_config.yaml
+      - ./dav-controller/proof_config_nonprod.yaml:/app/api/proof_config.yaml
     networks:
       - dav_controller
 
@@ -85,7 +85,7 @@ services:
     networks:
       - dav_controller
     volumes:
-      - ./agent/config/ledgers.yaml:/tmp/ledgers.yaml
+      - ./agent/config/ledgers-nonprod.yaml:/tmp/ledgers.yaml
     depends_on:
       - wallet-db
     entrypoint: /bin/bash

@@ -1,0 +1,26 @@
+age-verification-bc-person:
+  proof-request:
+    name: age-verification
+    version: "1.0"
+    requested_attributes:
+      - names:
+          - picture
+        restrictions:
+          # https://candyscan.idlab.org/tx/CANDY_PROD/domain/14
+          - credential_definition_id: RGjWbW1eycP7FrMf4QJvX8:3:CL:13:Person
+        non_revoked:
+          from: $now
+          to: $now
+    requested_predicates:
+      - name: birthdate_dateint
+        p_type: <=
+        p_value: $threshold_date_19
+        restrictions:
+          # https://candyscan.idlab.org/tx/CANDY_PROD/domain/14
+          - credential_definition_id: RGjWbW1eycP7FrMf4QJvX8:3:CL:13:Person
+        non_revoked:
+          from: $now
+          to: $now
+  ui-revealed-attribs:
+    - picture
+  display-text: Scan the QR code with BC Wallet to provide proof of legal age.

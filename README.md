@@ -13,7 +13,7 @@ See [here](https://hackmd.io/@esune/SywrtDQvp) for more background and architect
 
 - A bash-compatible shell such as [Git Bash](https://git-scm.com/downloads)
 - [Docker](https://docs.docker.com/get-docker/)
-- Ngrok token (optional, required for local development)
+- Ngrok token (required for local development)
 
 ## Configuring Ngrok
 
@@ -25,7 +25,9 @@ NGROK_AUTHTOKEN=<your token here>
 
 ## Running lcrb-dav
 
-Open a shell in the [docker](docker/) folder and run the following commands:
+If you want to run the project in production mode, follow the instructions [here](docs/Docker-for-Production.md).
+
+To run the project in local development mode, open a shell in the [docker](docker/) folder and run the following commands:
 
 - `./manage build`: this command will build the controller image. This step is required the first time the project is run, and when dependencies in change in the requirements file(s).
 - `./manage start`: this will start the project.
@@ -52,11 +54,11 @@ Before starting up lcrv-dav, a couple of things need to be considered:
       name: age-verification
       version: "1.0"
       requested_attributes:
-        - names: 
+        - names:
             - picture
           restrictions:
             - schema_name: Person
-          non_revoked: 
+          non_revoked:
             from: $now
             to: $now
       requested_predicates:
@@ -65,7 +67,7 @@ Before starting up lcrv-dav, a couple of things need to be considered:
           p_value: $threshold_date_19
           restrictions:
             - schema_name: Person
-          non_revoked: 
+          non_revoked:
             from: $now
             to: $now
     ui-revealed-attribs:
@@ -76,14 +78,14 @@ Before starting up lcrv-dav, a couple of things need to be considered:
       name: age-verification-more-info
       version: "1.0"
       requested_attributes:
-        - names: 
+        - names:
             - picture
             - given_names
             - family_name
             - country
           restrictions:
             - schema_name: Person
-          non_revoked: 
+          non_revoked:
             from: $now
             to: $now
       requested_predicates:
@@ -92,7 +94,7 @@ Before starting up lcrv-dav, a couple of things need to be considered:
           p_value: $threshold_date_19
           restrictions:
             - schema_name: Person
-          non_revoked: 
+          non_revoked:
             from: $now
             to: $now
     ui-revealed-attribs:
@@ -108,17 +110,17 @@ Before starting up lcrv-dav, a couple of things need to be considered:
   export DAV_PROOF_CONFIG_ID="age-verification-bc-person-credential"
   ```
 - When running locally the application will be accessible at `http://localhost:5000/`. </br>
-Scan the QR code with BC Wallet application and proceed with the on screen instruction to complete the present-proof exchange and verify yourself. </br>
-If needed, you can obtain a Person Credential from the [BC Wallet Showcase](https://digital.gov.bc.ca/digital-trust/showcase) by completing the lawyer demo.
+  Scan the QR code with BC Wallet application and proceed with the on screen instruction to complete the present-proof exchange and verify yourself. </br>
+  If needed, you can obtain a Person Credential from the [BC Wallet Showcase](https://digital.gov.bc.ca/digital-trust/showcase) by completing the lawyer demo.
 
 ## Environment Variables
 
 Several functions in lcrb-dav can be tweaked by using the following environment variables.
 
-| Variable                 | Type | What it does                                                |NOTES|
-| ------------------------ | ---- | ---------------------------------------------- |-|
-| USE_OOB_PRESENT_PROOF    | bool | if True, the present-proof request will be provided as a an [out of band](https://github.com/hyperledger/aries-rfcs/tree/main/features/0434-outofband) invitation with a [present-proof](https://github.com/hyperledger/aries-rfcs/tree/main/features/0037-present-proof) request inside. If False, the present-proof request will be use the [service-decorator](https://github.com/hyperledger/aries-rfcs/tree/main/features/0056-service-decorator)|**TRUE:** BC Wallet supports our OOB Message with a minor glitch, BiFold, Lissi, Trinsic, and Estatus all read the QR code as 'Invalid' **FALSE:** Works with|
-| LOG_WITH_JSON            | bool | If True, logging output should printed as JSON if False it will be pretty printed.| Default behavior will print as JSON. |
-| LOG_TIMESTAMP_FORMAT     | string | determines the timestamp formatting used in logs | Default is "iso" |
-| LOG_LEVEL                | "DEBUG", "INFO", "WARNING", or "ERROR" | sets the minimum log level that will be printed to standard out| Defaults to DEBUG |
-| DAV_PROOF_CONFIG_ID                | "age-verification-bc-person-credential" | sets the proof template config to be used | Defaults to "age-verification-bc-person-credential" |
+| Variable              | Type                                    | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                           | NOTES                                                                                                                                                         |
+| --------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| USE_OOB_PRESENT_PROOF | bool                                    | if True, the present-proof request will be provided as a an [out of band](https://github.com/hyperledger/aries-rfcs/tree/main/features/0434-outofband) invitation with a [present-proof](https://github.com/hyperledger/aries-rfcs/tree/main/features/0037-present-proof) request inside. If False, the present-proof request will be use the [service-decorator](https://github.com/hyperledger/aries-rfcs/tree/main/features/0056-service-decorator) | **TRUE:** BC Wallet supports our OOB Message with a minor glitch, BiFold, Lissi, Trinsic, and Estatus all read the QR code as 'Invalid' **FALSE:** Works with |
+| LOG_WITH_JSON         | bool                                    | If True, logging output should printed as JSON if False it will be pretty printed.                                                                                                                                                                                                                                                                                                                                                                     | Default behavior will print as JSON.                                                                                                                          |
+| LOG_TIMESTAMP_FORMAT  | string                                  | determines the timestamp formatting used in logs                                                                                                                                                                                                                                                                                                                                                                                                       | Default is "iso"                                                                                                                                              |
+| LOG_LEVEL             | "DEBUG", "INFO", "WARNING", or "ERROR"  | sets the minimum log level that will be printed to standard out                                                                                                                                                                                                                                                                                                                                                                                        | Defaults to DEBUG                                                                                                                                             |
+| DAV_PROOF_CONFIG_ID   | "age-verification-bc-person-credential" | sets the proof template config to be used                                                                                                                                                                                                                                                                                                                                                                                                              | Defaults to "age-verification-bc-person-credential"                                                                                                           |
