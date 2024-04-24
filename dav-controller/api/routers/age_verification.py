@@ -101,18 +101,20 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             for key, value in revealed_attr_value_dict.items():
                 resp_incl_revealed_attibs[key] = value["raw"]
 
+        # add or ignore the revealed attributes 
         metadata = auth_session.metadata or {}
-        metadata["revealed_attributes"] = resp_incl_revealed_attibs
+        if auth_session.retain_attributes:
+            metadata["revealed_attributes"] = resp_incl_revealed_attibs
+        else:
+            logger.info(f"Not retaining attributes for session {auth_session.id}")
 
-        # Needs to be made flexible for different proof requests
         response = AgeVerificationModelRead(
             status=auth_session.proof_status,
             id=str(auth_session.id),
             notify_endpoint=auth_session.notify_endpoint,
             metadata=metadata,
         )
-        # Testing
-        logger.error(f" --- {str(response)}")
+        logger.debug(f"Generated response: {response}")
         return response
 
     return AgeVerificationModelRead(
@@ -150,6 +152,7 @@ async def new_dav_request(
         pres_exch_id=response.presentation_exchange_id,
         presentation_exchange=response.dict(),
         notify_endpoint=request.notify_endpoint,
+        retain_attributes=request.retain_attributes,
     )
 
     # save AuthSession

@@ -26,6 +26,7 @@ class AuthSessionBase(BaseModel):
     )
     metadata: Optional[dict] = None
     notify_endpoint: Optional[str] = None
+    retain_attributes: bool = False
 
     # @validator('metadata')
     # def prevent_dict_none(cls, v):
