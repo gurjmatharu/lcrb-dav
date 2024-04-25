@@ -98,6 +98,15 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             metadata=metadata,
         )
         logger.debug(f"Generated response: {response}")
+        # Remove revealed attributes if not retained
+        if not auth_session.retain_attributes:
+            update_metadata = copy.deepcopy(metadata)
+            if "revealed_attributes" in update_metadata:
+                del update_metadata["revealed_attributes"]
+                logger.info(f"Attributes not retained for session {auth_session.id}")
+
+            update_data = AuthSessionPatch(metadata=update_metadata, pres_exch_id=auth_session.pres_exch_id)
+            await AuthSessionCRUD(db).patch(str(auth_session.id), update_data)
         return response
 
     return AgeVerificationModelRead(
