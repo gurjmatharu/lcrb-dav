@@ -1,4 +1,5 @@
 import base64
+import copy
 import io
 import json
 import os
@@ -101,12 +102,8 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             for key, value in revealed_attr_value_dict.items():
                 resp_incl_revealed_attibs[key] = value["raw"]
 
-        # add or ignore the revealed attributes 
-        metadata = auth_session.metadata or {}
-        if auth_session.retain_attributes:
-            metadata["revealed_attributes"] = resp_incl_revealed_attibs
-        else:
-            logger.info(f"Not retaining attributes for session {auth_session.id}")
+        metadata = auth_session.metadata or {} 
+        metadata["revealed_attributes"] = resp_incl_revealed_attibs
 
         response = AgeVerificationModelRead(
             status=auth_session.proof_status,
@@ -115,6 +112,15 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             metadata=metadata,
         )
         logger.debug(f"Generated response: {response}")
+        # Remove revealed attributes if not retained
+        if not auth_session.retain_attributes:
+            update_metadata = copy.deepcopy(metadata)
+            if "revealed_attributes" in update_metadata:
+                del update_metadata["revealed_attributes"]
+                logger.info(f"Attributes not retained for session {auth_session.id}")
+
+            update_data = AuthSessionPatch(metadata=update_metadata, pres_exch_id=auth_session.pres_exch_id)
+            await AuthSessionCRUD(db).patch(str(auth_session.id), update_data)
         return response
 
     return AgeVerificationModelRead(
