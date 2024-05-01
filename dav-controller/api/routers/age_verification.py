@@ -79,7 +79,7 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
         await sio.emit("status", {"status": "expired"}, to=sid)
         if auth_session.notify_endpoint:
             deliver_notification(
-                "status", {"status": "expired"}, auth_session.notify_endpoint
+                {"status": "expired"}, auth_session.notify_endpoint
             )
     if auth_session.proof_status == AuthSessionState.SUCCESS:
         pres_exch = auth_session.presentation_exchange
