@@ -146,11 +146,11 @@ class GlobalConfig(BaseSettings):
 
     # the following defaults match up with default values in scripts/.env.example
     # these MUST be all set in non-local environments.
-    DB_HOST: str = os.environ.get("DB_HOST", "localhost")
+    DB_HOST: str = os.environ.get("DB_HOST", "controller-db")
     DB_PORT: Union[int, str] = os.environ.get("DB_PORT", "27017")
-    DB_NAME: str = os.environ.get("DB_NAME", "dav-controller")
-    DB_USER: str = os.environ.get("DAV_CONTROLLER_DB_USER", "davcontrolleruser")
-    DB_PASS: str = os.environ.get("DAV_CONTROLLER_DB_USER_PWD", "davcontrollerpass")
+    DB_NAME: str = os.environ.get("DB_NAME", "")
+    DB_USER: str = os.environ.get("DAV_CONTROLLER_DB_USER", "")
+    DB_PASS: str = os.environ.get("DAV_CONTROLLER_DB_USER_PWD", "")
 
     MONGODB_URL: str = (
         f"""mongodb://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}?retryWrites=true&w=majority"""  # noqa: E501
