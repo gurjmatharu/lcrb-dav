@@ -44,13 +44,14 @@ async def post_topic(request: Request, topic: str, db: Database = Depends(get_db
 
         if webhook_body["state"] == "presentation_received":
             logger.info("GOT A PRESENTATION, TIME TO VERIFY")
-            client.verify_presentation(auth_session.pres_exch_id)
+            # client.verify_presentation(auth_session.pres_exch_id)
             # This state is the default on the front end.. So don't send a status
 
         if webhook_body["state"] == "verified":
             logger.info("VERIFIED")
             if webhook_body["verified"] == "true":
                 auth_session.proof_status = AuthSessionState.SUCCESS
+                auth_session.presentation_exchange
                 await sio.emit("status", {"status": "success"}, to=sid)
                 if auth_session.notify_endpoint:
                     deliver_notification(
