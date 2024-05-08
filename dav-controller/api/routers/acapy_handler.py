@@ -15,6 +15,7 @@ from ..core.config import settings
 logger = structlog.getLogger(__name__)
 from ..routers.socketio import sio, connections_reload
 from ..routers.webhook_deliverer import deliver_notification
+from ttl_cache import TTLCacheManager  
 
 router = APIRouter()
 
@@ -24,7 +25,7 @@ async def _parse_webhook_body(request: Request):
 
 
 @router.post("/topic/{topic}/")
-async def post_topic(request: Request, topic: str, db: Database = Depends(get_db)):
+async def post_topic(request: Request, topic: str, db: Database = Depends(get_db), cache_manager: TTLCacheManager = Depends()):
     """Called by aca-py agent."""
     logger.info(f">>> post_topic : topic={topic}")
 
@@ -52,6 +53,7 @@ async def post_topic(request: Request, topic: str, db: Database = Depends(get_db
             if webhook_body["verified"] == "true":
                 auth_session.proof_status = AuthSessionState.SUCCESS
                 auth_session.presentation_exchange
+                # TODO: make presentation auth_session.presentation_exchange happen and conditionally save to db, but saave to cache.
                 await sio.emit("status", {"status": "success"}, to=sid)
                 if auth_session.notify_endpoint:
                     deliver_notification(

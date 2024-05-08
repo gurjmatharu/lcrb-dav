@@ -39,6 +39,7 @@ from ..routers.webhook_deliverer import deliver_notification
 
 # This allows the templates to insert assets like css, js or svg.
 from ..templates.helpers import add_asset
+from ttl_cache import TTLCacheManager  
 
 logger: structlog.typing.FilteringBoundLogger = structlog.getLogger(__name__)
 
@@ -55,7 +56,7 @@ router = APIRouter()
     response_model_exclude_unset=True,
     dependencies=[Depends(get_api_key)],
 )
-async def get_dav_request(pid: str, db: Database = Depends(get_db)):
+async def get_dav_request(pid: str, db: Database = Depends(get_db), cache_manager: TTLCacheManager = Depends()):
     """Called by authorize webpage to see if request is verified."""
     auth_session = await AuthSessionCRUD(db).get(pid)
 
