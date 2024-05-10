@@ -89,23 +89,14 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
             )
     if auth_session.proof_status == AuthSessionState.SUCCESS:
 
-        metadata = auth_session.metadata or {}
-        metadata = auth_session.metadata or {}
-        metadata["revealed_attributes"] = resp_incl_revealed_attibs
-
-        # Needs to be made flexible for different proof requests
         metadata = auth_session.metadata or {} 
-        metadata["revealed_attributes"] = resp_incl_revealed_attibs
-
-        # Needs to be made flexible for different proof requests
         response = AgeVerificationModelRead(
             status=auth_session.proof_status,
             id=str(auth_session.id),
             notify_endpoint=auth_session.notify_endpoint,
             metadata=metadata,
         )
-        # Testing
-        logger.error(f" --- {str(response)}")
+        logger.debug(f"Generated response: {response}")
         return response
 
     return AgeVerificationModelRead(
