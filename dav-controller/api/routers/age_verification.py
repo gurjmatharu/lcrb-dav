@@ -39,7 +39,7 @@ from ..routers.webhook_deliverer import deliver_notification
 
 # This allows the templates to insert assets like css, js or svg.
 from ..templates.helpers import add_asset
-from ttl_cache import TTLCacheManager  
+from ..ttl_cache import cache_manager
 
 logger: structlog.typing.FilteringBoundLogger = structlog.getLogger(__name__)
 
@@ -56,13 +56,18 @@ router = APIRouter()
     response_model_exclude_unset=True,
     dependencies=[Depends(get_api_key)],
 )
-async def get_dav_request(pid: str, db: Database = Depends(get_db), cache_manager: TTLCacheManager = Depends()):
+async def get_dav_request(pid: str, db: Database = Depends(get_db)):
     """Called by authorize webpage to see if request is verified."""
     auth_session = await AuthSessionCRUD(db).get(pid)
 
     pid = str(auth_session.id)
     connections = connections_reload()
     sid = connections.get(pid)
+    
+    # Get metadata from TTL cache
+    cached_metadata = cache_manager.get(pid)
+    if cached_metadata:
+        auth_session.metadata = cached_metadata.get("metadata")
 
     """
      Check if proof is expired. But only if the proof has not been started.
@@ -84,28 +89,8 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db), cache_manage
                 "status", {"status": "expired"}, auth_session.notify_endpoint
             )
     if auth_session.proof_status == AuthSessionState.SUCCESS:
-        pres_exch = auth_session.presentation_exchange
-        logger.debug(f"PRES_EXCH: {pres_exch}")
-        col = db.get_collection(COLLECTION_NAMES.PRES_EX_ID_TO_PROOF_REQ_CONFIG_ID)
-        pres_ex_proof_req_id_dict = col.find_one(
-            {"pres_exch_id": auth_session.pres_exch_id}
-        )
-        pres_ex_proof_req_id = PresExProofConfig(**pres_ex_proof_req_id_dict)
-        proof_req_id = pres_ex_proof_req_id.proof_req_config_id
-        resp_incl_revealed_attibs = {}
-        proof_revealed_attr_group_dict = pres_exch["presentation"]["requested_proof"][
-            "revealed_attr_groups"
-        ]
-        for req_attr in proof_revealed_attr_group_dict:
-            revealed_attr_value_dict = proof_revealed_attr_group_dict[req_attr][
-                "values"
-            ]
-            for key, value in revealed_attr_value_dict.items():
-                resp_incl_revealed_attibs[key] = value["raw"]
 
         metadata = auth_session.metadata or {} 
-        metadata["revealed_attributes"] = resp_incl_revealed_attibs
-
         response = AgeVerificationModelRead(
             status=auth_session.proof_status,
             id=str(auth_session.id),
@@ -113,15 +98,6 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db), cache_manage
             metadata=metadata,
         )
         logger.debug(f"Generated response: {response}")
-        # Remove revealed attributes if not retained
-        if not auth_session.retain_attributes:
-            update_metadata = copy.deepcopy(metadata)
-            if "revealed_attributes" in update_metadata:
-                del update_metadata["revealed_attributes"]
-                logger.info(f"Attributes not retained for session {auth_session.id}")
-
-            update_data = AuthSessionPatch(metadata=update_metadata, pres_exch_id=auth_session.pres_exch_id)
-            await AuthSessionCRUD(db).patch(str(auth_session.id), update_data)
         return response
 
     return AgeVerificationModelRead(

@@ -13,3 +13,5 @@ class TTLCacheManager:
 
     def get(self, key: str) -> Any:
         return self._cache.get(key)
+
+cache_manager = TTLCacheManager()

@@ -4,7 +4,7 @@ import os
 import time
 import uuid
 from pathlib import Path
-from ttl_cache import TTLCacheManager
+# from .ttl_cache import TTLCacheManager
 
 import uvicorn
 from api.core.config import settings
@@ -44,11 +44,9 @@ def get_application() -> FastAPI:
     )
     return application
 
-cache_manager = TTLCacheManager()
-
 app = get_application()
-app.include_router(acapy_handler.router, prefix="/webhooks", include_in_schema=False, cache_manager=cache_manager)
-app.include_router(presentation_request.router, include_in_schema=False, cache_manager=cache_manager)
+app.include_router(acapy_handler.router, prefix="/webhooks", include_in_schema=False)
+app.include_router(presentation_request.router, include_in_schema=False)
 app.include_router(
     age_verification.router, tags=["age-verification"], include_in_schema=True
 )
