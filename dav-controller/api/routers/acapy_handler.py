@@ -54,14 +54,14 @@ async def post_topic(request: Request, topic: str, db: Database = Depends(get_db
                 await sio.emit("status", {"status": "success"}, to=sid)
                 if auth_session.notify_endpoint:
                     deliver_notification(
-                        "status", {"status": "success"}, auth_session.notify_endpoint
+                        {"status": "success"}, auth_session.notify_endpoint
                     )
             else:
                 auth_session.proof_status = AuthSessionState.FAILURE
                 await sio.emit("status", {"status": "failure"}, to=sid)
                 if auth_session.notify_endpoint:
                     deliver_notification(
-                        "status", {"status": "failure"}, auth_session.notify_endpoint
+                        {"status": "failure"}, auth_session.notify_endpoint
                     )
 
             await AuthSessionCRUD(db).patch(
@@ -90,7 +90,7 @@ async def post_topic(request: Request, topic: str, db: Database = Depends(get_db
             await sio.emit("status", {"status": "expired"}, to=sid)
             if auth_session.notify_endpoint:
                 deliver_notification(
-                    "status", {"status": "expired"}, auth_session.notify_endpoint
+                    {"status": "expired"}, auth_session.notify_endpoint
                 )
             await AuthSessionCRUD(db).patch(
                 str(auth_session.id), AuthSessionPatch(**auth_session.dict())

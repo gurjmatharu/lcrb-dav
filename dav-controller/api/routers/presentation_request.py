@@ -67,7 +67,7 @@ async def send_connectionless_proof_req(
         await sio.emit("status", {"status": "in_progress"}, to=sid)
         if auth_session.notify_endpoint:
             deliver_notification(
-                "status", {"status": "in_progress"}, auth_session.notify_endpoint
+                {"status": "in_progress"}, auth_session.notify_endpoint
             )
 
     client = AcapyClient(db=db)
