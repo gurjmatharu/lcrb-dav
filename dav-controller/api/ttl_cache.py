@@ -3,6 +3,7 @@ from cachetools import TTLCache
 
 # TTLCacheManager: Manages a temporary in-memory cache with automatic eviction based on time-to-live.
 # For production multi-pod deployments, use Redis for shared caching.
+# TODO: migrate to Redis
 
 class TTLCacheManager:
     def __init__(self, maxsize: int = 100, ttl_seconds: int = 3600):
