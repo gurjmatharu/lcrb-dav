@@ -10,3 +10,4 @@ uvicorn[standard]==0.22.0
 python-socketio==5.8.0 # required to run websockets
 canonicaljson==2.0.0 # used to provide unique consistent user identifiers
 pyyaml==6.0.1
+cachetools==5.3.3

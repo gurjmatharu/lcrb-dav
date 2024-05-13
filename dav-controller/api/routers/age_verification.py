@@ -38,6 +38,7 @@ from ..routers.webhook_deliverer import deliver_notification
 
 # This allows the templates to insert assets like css, js or svg.
 from ..templates.helpers import add_asset
+from ..ttl_cache import cache_manager
 
 logger: structlog.typing.FilteringBoundLogger = structlog.getLogger(__name__)
 
@@ -61,6 +62,11 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
     pid = str(auth_session.id)
     connections = connections_reload()
     sid = connections.get(pid)
+    
+    # Get metadata from TTL cache
+    cached_metadata = cache_manager.get(pid)
+    if cached_metadata:
+        auth_session.metadata = cached_metadata.get("metadata")
 
     """
      Check if proof is expired. But only if the proof has not been started.
@@ -82,37 +88,15 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
                 {"status": "expired"}, auth_session.notify_endpoint
             )
     if auth_session.proof_status == AuthSessionState.SUCCESS:
-        pres_exch = auth_session.presentation_exchange
-        logger.debug(f"PRES_EXCH: {pres_exch}")
-        col = db.get_collection(COLLECTION_NAMES.PRES_EX_ID_TO_PROOF_REQ_CONFIG_ID)
-        pres_ex_proof_req_id_dict = col.find_one(
-            {"pres_exch_id": auth_session.pres_exch_id}
-        )
-        pres_ex_proof_req_id = PresExProofConfig(**pres_ex_proof_req_id_dict)
-        proof_req_id = pres_ex_proof_req_id.proof_req_config_id
-        resp_incl_revealed_attibs = {}
-        proof_revealed_attr_group_dict = pres_exch["presentation"]["requested_proof"][
-            "revealed_attr_groups"
-        ]
-        for req_attr in proof_revealed_attr_group_dict:
-            revealed_attr_value_dict = proof_revealed_attr_group_dict[req_attr][
-                "values"
-            ]
-            for key, value in revealed_attr_value_dict.items():
-                resp_incl_revealed_attibs[key] = value["raw"]
 
-        metadata = auth_session.metadata or {}
-        metadata["revealed_attributes"] = resp_incl_revealed_attibs
-
-        # Needs to be made flexible for different proof requests
+        metadata = auth_session.metadata or {} 
         response = AgeVerificationModelRead(
             status=auth_session.proof_status,
             id=str(auth_session.id),
             notify_endpoint=auth_session.notify_endpoint,
             metadata=metadata,
         )
-        # Testing
-        logger.error(f" --- {str(response)}")
+        logger.debug(f"Generated response: {response}")
         return response
 
     return AgeVerificationModelRead(
@@ -150,6 +134,7 @@ async def new_dav_request(
         pres_exch_id=response.presentation_exchange_id,
         presentation_exchange=response.dict(),
         notify_endpoint=request.notify_endpoint,
+        retain_attributes=request.retain_attributes,
     )
 
     # save AuthSession
