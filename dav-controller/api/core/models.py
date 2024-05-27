@@ -3,7 +3,6 @@ from typing import TypedDict
 
 from bson import ObjectId
 from pydantic import BaseModel, Field
-from pyop.userinfo import Userinfo
 
 
 class PyObjectId(ObjectId):

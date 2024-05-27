@@ -1,0 +1,81 @@
+{
+    order rate_limit before basicauth
+}
+
+{$APPLICATION_DOMAIN} {
+    # Set CA authority - defaults to Letsencrypt Staging
+    # Email contact is used for Letsencrypt certificate communications
+    tls {$EMAIL_CONTACT} {
+        ca {$CA_ENDPOINT}
+    }
+
+    # Most common security headers
+    header {
+        # enable CSP
+        Content-Security-Policy "default-src * data: blob: filesystem: 'unsafe-inline' 'unsafe-eval'";
+        # enable HSTS
+        Strict-Transport-Security "max-age=86400; includeSubDomains";
+        # disable clients from sniffing the media type
+        X-Content-Type-Options "nosniff";
+        # XSS protection
+        X-XSS-Protection 1;
+        # clickjacking protection
+        X-Frame-Options DENY;
+    }
+
+    # Log everything to stdout
+    log {
+        output stdout
+    }
+
+    #  Set server root
+    root * /srv
+
+    # Enable serving static files
+    file_server
+
+    # Enable gzip, zstd compression
+    encode zstd gzip
+
+    # Enable templates module - required for
+    templates
+
+    # Limit request rate to avoid DDoS attacks
+    rate_limit {
+        zone dav {
+            key    {remote_host}
+            window 5s
+            events 15
+        }
+    }
+
+    # Openly exposed health check endpoint
+    respond /health 200
+
+    # Required for SPA router to work
+    @spa_router {
+        not path /dav/* /agent/*
+        file {
+            try_files {path} /index.html
+        }
+    }
+    rewrite @spa_router {http.matchers.file.relative}
+
+    # Proxy requests to ACA-Py
+    route /agent {
+        uri strip_prefix /agent
+        reverse_proxy {$AGENT_HOST}:{$AGENT_PORT} {
+            header_up Host {upstream_hostport}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+
+    # Proxy requests to Controller
+    route /dav/* {
+        uri strip_prefix /dav
+        reverse_proxy {$CONTROLLER_HOST}:{$CONTROLLER_PORT} {
+            header_up Host {upstream_hostport}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+}

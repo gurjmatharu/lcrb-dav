@@ -3,7 +3,7 @@ import io
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Mapping, cast
 from urllib.parse import urlencode
 
@@ -15,7 +15,6 @@ from fastapi import status as http_status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from jinja2 import Template
 from pymongo.database import Database
-from pyop.exceptions import InvalidAuthenticationRequest
 
 from ..authSessions.crud import AuthSessionCreate, AuthSessionCRUD
 from ..authSessions.models import AuthSessionPatch, AuthSessionState
@@ -25,8 +24,8 @@ from ..core.config import settings
 from ..core.logger_util import log_debug
 from ..core.models import (
     AgeVerificationModelCreate,
-    AgeVerificationModelRead,
     AgeVerificationModelCreateRead,
+    AgeVerificationModelRead,
     GenericErrorMessage,
 )
 from ..db.collections import COLLECTION_NAMES
@@ -62,7 +61,7 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
     pid = str(auth_session.id)
     connections = connections_reload()
     sid = connections.get(pid)
-    
+
     # Get metadata from TTL cache
     cached_metadata = cache_manager.get(pid)
     if cached_metadata:
@@ -76,7 +75,9 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
         auth_session.expired_timestamp < datetime.now()
         and auth_session.proof_status == AuthSessionState.INITIATED
     ):
-        logger.info("PROOF EXPIRED")
+        logger.info(
+            f"""REQUEST EXPIRED: {datetime.now()} > {auth_session.expired_timestamp}"""
+        )
         auth_session.proof_status = AuthSessionState.EXPIRED
         await AuthSessionCRUD(db).patch(
             str(auth_session.id), AuthSessionPatch(**auth_session.dict())
@@ -84,12 +85,10 @@ async def get_dav_request(pid: str, db: Database = Depends(get_db)):
         # Send message through the websocket.
         await sio.emit("status", {"status": "expired"}, to=sid)
         if auth_session.notify_endpoint:
-            deliver_notification(
-                {"status": "expired"}, auth_session.notify_endpoint
-            )
+            deliver_notification({"status": "expired"}, auth_session.notify_endpoint)
     if auth_session.proof_status == AuthSessionState.SUCCESS:
 
-        metadata = auth_session.metadata or {} 
+        metadata = auth_session.metadata or {}
         response = AgeVerificationModelRead(
             status=auth_session.proof_status,
             id=str(auth_session.id),
@@ -162,9 +161,6 @@ async def render_new_dav_request(request: Request, db: Database = Depends(get_db
 
     req_query_params = request.query_params._dict
 
-    #  create proof for this request
-    new_user_id = str(uuid.uuid4())
-
     # retrieve presentation_request config.
     client = AcapyClient(db=db)
 
@@ -176,7 +172,11 @@ async def render_new_dav_request(request: Request, db: Database = Depends(get_db
         pres_exch_id=response.presentation_exchange_id,
         presentation_exchange=response.dict(),
         notify_endpoint=req_query_params.get("notify_endpoint"),
+        expired_timestamp=datetime.now()
+        + timedelta(seconds=settings.CONTROLLER_PRESENTATION_EXPIRE_TIME),
     )
+
+    logger.info(f"NOW: {datetime.now()}, EXPIRY: {new_auth_session.expired_timestamp}")
 
     # save AuthSession
     auth_session = await AuthSessionCRUD(db).create(new_auth_session)

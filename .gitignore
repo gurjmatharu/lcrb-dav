@@ -336,4 +336,7 @@ dav-controller/static/
 dav-controller/signing-keys/
 dav-controller/api/proof_config.yaml
 
+# Reverse Proxy
+**/certs
+
 wallet.txt

@@ -53,16 +53,18 @@ async def post_topic(request: Request, topic: str, db: Database = Depends(get_db
             if webhook_body["verified"] == "true":
                 auth_session.proof_status = AuthSessionState.SUCCESS
                 pres_exch = auth_session.presentation_exchange
-                col = db.get_collection(COLLECTION_NAMES.PRES_EX_ID_TO_PROOF_REQ_CONFIG_ID)
+                col = db.get_collection(
+                    COLLECTION_NAMES.PRES_EX_ID_TO_PROOF_REQ_CONFIG_ID
+                )
                 pres_ex_proof_req_id_dict = col.find_one(
                     {"pres_exch_id": auth_session.pres_exch_id}
                 )
                 pres_ex_proof_req_id = PresExProofConfig(**pres_ex_proof_req_id_dict)
                 proof_req_id = pres_ex_proof_req_id.proof_req_config_id
                 resp_incl_revealed_attibs = {}
-                proof_revealed_attr_group_dict = pres_exch["presentation"]["requested_proof"][
-                    "revealed_attr_groups"
-                ]
+                proof_revealed_attr_group_dict = pres_exch["presentation"][
+                    "requested_proof"
+                ]["revealed_attr_groups"]
                 for req_attr in proof_revealed_attr_group_dict:
                     revealed_attr_value_dict = proof_revealed_attr_group_dict[req_attr][
                         "values"
@@ -70,7 +72,7 @@ async def post_topic(request: Request, topic: str, db: Database = Depends(get_db
                     for key, value in revealed_attr_value_dict.items():
                         resp_incl_revealed_attibs[key] = value["raw"]
 
-                metadata = auth_session.metadata or {} 
+                metadata = auth_session.metadata or {}
                 metadata["revealed_attributes"] = resp_incl_revealed_attibs
 
                 # Save metadata to TTL cache
@@ -79,7 +81,7 @@ async def post_topic(request: Request, topic: str, db: Database = Depends(get_db
                 # conditionally save metadata to db
                 if auth_session.retain_attributes:
                     auth_session.metadata = metadata
-                
+
                 await sio.emit("status", {"status": "success"}, to=sid)
                 if auth_session.notify_endpoint:
                     deliver_notification(
@@ -95,36 +97,6 @@ async def post_topic(request: Request, topic: str, db: Database = Depends(get_db
             await AuthSessionCRUD(db).patch(
                 str(auth_session.id), AuthSessionPatch(**auth_session.dict())
             )
-
-        # Calcuate the expiration time of the proof
-        now_time = datetime.now()
-        expired_time = now_time + timedelta(
-            seconds=settings.CONTROLLER_PRESENTATION_EXPIRE_TIME
-        )
-
-        # Update the expiration time of the proof
-        auth_session.expired_timestamp = expired_time
-        await AuthSessionCRUD(db).patch(
-            str(auth_session.id), AuthSessionPatch(**auth_session.dict())
-        )
-
-        # Check if expired. But only if the proof has not been started.
-        if (
-            expired_time < now_time
-            and auth_session.proof_status == AuthSessionState.INITIATED
-        ):
-            logger.info("EXPIRED")
-            auth_session.proof_status = AuthSessionState.EXPIRED
-            await sio.emit("status", {"status": "expired"}, to=sid)
-            if auth_session.notify_endpoint:
-                deliver_notification(
-                    {"status": "expired"}, auth_session.notify_endpoint
-                )
-            await AuthSessionCRUD(db).patch(
-                str(auth_session.id), AuthSessionPatch(**auth_session.dict())
-            )
-
-        pass
     else:
         logger.debug("skipping webhook")
 

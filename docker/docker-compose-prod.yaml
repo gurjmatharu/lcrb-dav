@@ -1,5 +1,25 @@
-version: "3"
 services:
+  reverse-proxy:
+    build:
+      context: ..
+      dockerfile: docker/Caddy/Dockerfile
+    environment:
+      - APPLICATION_DOMAIN=${APPLICATION_DOMAIN}
+      - CONTROLLER_HOST=controller
+      - CONTROLLER_PORT=5000
+      - AGENT_HOST=aca-py
+      - AGENT_PORT=8030
+      - EMAIL_CONTACT=${EMAIL_CONTACT}
+      - CA_ENDPOINT=${CA_ENDPOINT:-https://acme-staging-v02.api.letsencrypt.org/directory}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy/certs:/root/.local/share/caddy/certificates
+    ports:
+      - ${HTTP_PORT:-80}:80
+      - ${HTTPS_PORT:-443}:443
+    networks:
+      - dav_controller
+
   controller:
     build:
       context: ..
@@ -17,13 +37,11 @@ services:
       - ACAPY_ADMIN_URL=http://aca-py:8077
       - ST_ACAPY_ADMIN_API_KEY_NAME=x-api-key
       - USE_OOB_PRESENT_PROOF=False
-      - DAV_PROOF_CONFIG_ID=${DAV_PROOF_CONFIG_ID}
+      - DAV_PROOF_CONFIG_ID=age-verification-bc-person-credential
       - ST_ACAPY_ADMIN_API_KEY=${AGENT_ADMIN_API_KEY}
       - DAV_CONTROLLER_DB_USER_PWD=${DAV_CONTROLLER_DB_PWD}
-      - CONTROLLER_URL=${CONTROLLER_URL}
-      - ACAPY_AGENT_URL=${AGENT_ENDPOINT}
-    ports:
-      - ${CONTROLLER_SERVICE_PORT}:5000
+      - CONTROLLER_URL=${APPLICATION_DOMAIN}/dav
+      - ACAPY_AGENT_URL=${APPLICATION_DOMAIN}/agent
     volumes:
       - ../dav-controller:/app:rw
       - ./dav-controller/proof_config_prod.yaml:/app/api/proof_config.yaml
@@ -44,7 +62,7 @@ services:
       - dav_controller
 
   aca-py:
-    image: ghcr.io/hyperledger/aries-cloudagent-python:py3.9-0.11.0
+    image: ghcr.io/hyperledger/aries-cloudagent-python:py3.9-0.12.1
     environment:
       - ACAPY_WALLET_NAME=dav_agent_wallet
       - ACAPY_WALLET_TYPE=askar
@@ -54,19 +72,17 @@ services:
       - ACAPY_READ_ONLY_LEDGER=true
       - ACAPY_GENESIS_TRANSACTIONS_LIST=/tmp/ledgers.yaml
       - ACAPY_LOG_LEVEL=info
-      - http://controller:5000/webhooks
+      - ACAPY_WEBHOOK_URL=http://controller:5000/webhooks
       - ACAPY_AUTO_PROVISION=true
       - POSTGRESQL_WALLET_HOST=wallet-db
       - POSTGRESQL_WALLET_PORT=5432
       - POSTGRESQL_WALLET_USER=dav_agent
       - ACAPY_LABEL=${AGENT_NAME}
-      - ACAPY_ENDPOINT=${AGENT_ENDPOINT}
+      - ACAPY_ENDPOINT=${APPLICATION_DOMAIN}/agent
       - AGENT_ADMIN_API_KEY=${AGENT_ADMIN_API_KEY}
       - ACAPY_WALLET_KEY=${AGENT_WALLET_ENCRYPTION_KEY}
       - ACAPY_WALLET_SEED=${AGENT_WALLET_SEED}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    ports:
-      - ${AGENT_HTTP_PORT}:${AGENT_HTTP_PORT}
     networks:
       - dav_controller
     volumes:
@@ -77,7 +93,7 @@ services:
     command:
       [
         "-c",
-        'sleep 15; aca-py start --inbound-transport http ''0.0.0.0'' ${AGENT_HTTP_PORT} --outbound-transport http --wallet-storage-config ''{"url":"wallet-db:5432","max_connections":5}'' --wallet-storage-creds ''{"account":"dav_agent","password":"${POSTGRES_PASSWORD}","admin_account":"dav_agent","admin_password":"${POSTGRES_PASSWORD}"}'' --admin ''0.0.0.0'' 8077 --admin-api-key ${AGENT_ADMIN_API_KEY}',
+        'sleep 15; aca-py start --inbound-transport http ''0.0.0.0'' 8030 --outbound-transport http --wallet-storage-config ''{"url":"wallet-db:5432","max_connections":5}'' --wallet-storage-creds ''{"account":"dav_agent","password":"${POSTGRES_PASSWORD}","admin_account":"dav_agent","admin_password":"${POSTGRES_PASSWORD}"}'' --admin ''0.0.0.0'' 8077 --admin-api-key ${AGENT_ADMIN_API_KEY}',
       ]
 
   wallet-db:
