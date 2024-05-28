@@ -32,7 +32,7 @@ services:
       - DB_NAME=dav_db
       - DAV_CONTROLLER_DB_USER=dav_verifier
       - CONTROLLER_CAMERA_REDIRECT_URL=wallet_howto
-      - CONTROLLER_PRESENTATION_EXPIRE_TIME=60
+      - CONTROLLER_PRESENTATION_EXPIRE_TIME=${QR_CODE_EXPIRY_SECONDS:-60}
       - ACAPY_TENANCY=single
       - ACAPY_ADMIN_URL=http://aca-py:8077
       - ST_ACAPY_ADMIN_API_KEY_NAME=x-api-key
